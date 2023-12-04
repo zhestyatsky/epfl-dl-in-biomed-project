@@ -65,9 +65,8 @@ class DecodingNetwork(nn.Module):
 
 
 class LEO(MetaTemplate):
-    def __init__(self, x_dim, backbone, n_way, n_support, n_task, task_update_num, inner_lr,
-                num_adaptation_steps, l2_penalty_coef, kl_coef, orthogonality_penalty_coef,
-                encoder_penalty_coef, approx=False):
+    def __init__(self, x_dim, backbone, n_way, n_support, n_task, inner_lr, num_adaptation_steps, l2_penalty_coef,
+                 kl_coef, orthogonality_penalty_coef, encoder_penalty_coef):
             """
             Initialize the LEO (Latent Embedding Optimization) model.
 
@@ -76,14 +75,12 @@ class LEO(MetaTemplate):
                 n_way (int): Number of classes in each task.
                 n_support (int): Number of support examples per class.
                 n_task (int): Number of tasks.
-                task_update_num (int): Number of task update steps.
                 inner_lr (float): Inner learning rate for task updates.
                 num_adaptation_steps (int): Number of inner loop adaptation steps.
                 l2_penalty_coef (float): Coefficient for L2 penalty.
                 kl_coef (float): Coefficient for KL divergence penalty.
                 orthogonality_penalty_coef (float): Coefficient for orthogonality penalty.
                 encoder_penalty_coef (float): Coefficient for encoder penalty.
-                approx (bool, optional): Whether to use first order approximation. Defaults to False.
             """
             super(LEO, self).__init__(backbone, n_way, n_support, change_way=False)
 
@@ -98,14 +95,12 @@ class LEO(MetaTemplate):
                 self.loss_fn = nn.CrossEntropyLoss()
 
             self.n_task = n_task
-            self.task_update_num = task_update_num
-            self.inner_lr = inner_lr 
+            self.inner_lr = inner_lr
             self.num_adaptation_steps = num_adaptation_steps
             self.l2_penalty_coef = l2_penalty_coef  
             self.kl_coef = kl_coef
             self.orthogonality_penalty_coef = orthogonality_penalty_coef
             self.encoder_penalty_coef = encoder_penalty_coef
-            self.approx = approx # first order approximation
 
             self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.feat_dim)
             self.decoder = DecodingNetwork(n_way=n_way, embedding_dim=x_dim, output_dim=self.feat_dim+1)
