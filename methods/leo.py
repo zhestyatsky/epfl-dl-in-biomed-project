@@ -3,10 +3,65 @@ import numpy as np
 import torch
 import torch.nn as nn
 import wandb
-from torch.autograd import Variable
 
 from backbones.blocks import Linear_fw
 from methods.meta_template import MetaTemplate
+
+
+class EncodingNetwork(nn.Module):
+    def __init__(self, n_support, n_way, embedding_dim):
+        super().__init__()
+        self.n_support = n_support
+        self.n_way = n_way
+        self.embedding_dim = embedding_dim
+
+        self.encoding_layer = nn.Linear(embedding_dim, embedding_dim)
+        self.relation_net = nn.Linear(2 * embedding_dim, 2 * embedding_dim)
+
+    def forward(self, x_support):
+        encoded_x_support = self.encoding_layer(x_support)
+
+        lhs_relation_net_input = encoded_x_support.unsqueeze(1).tile((1, self.n_way * self.n_support, 1))
+        rhs_relation_net_input = encoded_x_support.unsqueeze(0).tile((self.n_way * self.n_support, 1, 1))
+        relation_net_input = torch.cat((lhs_relation_net_input, rhs_relation_net_input), dim=-1)
+
+        relation_net_output = self.relation_net(relation_net_input).mean(dim=1)
+        relation_net_per_class_output = relation_net_output.view(self.n_way, self.n_support, -1).mean(dim=1)
+
+        means, stds = relation_net_per_class_output.chunk(chunks=2, dim=-1)
+
+        gaussian_vectors = torch.normal(
+            torch.zeros(self.n_way, self.embedding_dim),
+            torch.ones(self.n_way, self.embedding_dim),
+        )
+
+        output = gaussian_vectors * stds + means
+
+        return output
+
+
+class DecodingNetwork(nn.Module):
+    def __init__(self, n_way, embedding_dim, output_dim):
+        super().__init__()
+        self.n_way = n_way
+        self.embedding_dim = embedding_dim
+        self.output_dim = output_dim
+
+        self.decoding_layer = nn.Linear(embedding_dim, 2 * output_dim)
+
+    def forward(self, latent_output):
+        decoded_output = self.decoding_layer(latent_output)
+
+        means, stds = decoded_output(chunks=2, dim=-1)
+
+        gaussian_vectors = torch.normal(
+            torch.zeros(self.n_way, self.output_dim),
+            torch.ones(self.n_way, self.output_dim),
+        )
+
+        output = gaussian_vectors * stds + means
+
+        return output
 
 
 class LEO(MetaTemplate):
@@ -52,6 +107,9 @@ class LEO(MetaTemplate):
             self.encoder_penalty_coef = encoder_penalty_coef
             self.approx = approx # first order approximation
 
+            self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, embedding_dim=self.feat_dim)
+            self.decoder = DecodingNetwork(n_way=n_way, embedding_dim=self.feat_dim, output_dim=self.feat_dim+1)
+
     def forward(self, x):
         out = self.feature.forward(x)
         scores = self.classifier.forward(out)
@@ -63,56 +121,40 @@ class LEO(MetaTemplate):
         return scores
 
     def set_forward(self, x, y=None):
+        if torch.cuda.is_available():
+            x = x.cuda()
 
-        if isinstance(x, list):  # If there are >1 inputs to model (e.g. GeneBac)
-            if torch.cuda.is_available():
-                x = [obj.cuda() for obj in x]
-            x_var = [Variable(obj) for obj in x]
-            x_a_i = [x_var[i][:, :self.n_support, :].contiguous().view(self.n_way * self.n_support,
-                                                                *x[i].size()[2:]) for i in range(len(x))] #support set
-            x_b_i = [x_var[i][:, self.n_support:, :].contiguous().view(self.n_way * self.n_query, *x[i].size()[2:]) for i in range(len(x))]  # query data
-
-        else:
-            if torch.cuda.is_available():
-                x = x.cuda()
-            x_var = Variable(x)
-            x_a_i = x_var[:, :self.n_support, :].contiguous().view(self.n_way * self.n_support,
-                                                                *x.size()[2:])  # support data
-            x_b_i = x_var[:, self.n_support:, :].contiguous().view(self.n_way * self.n_query, *x.size()[2:])  # query data
+        x_support = x[:, :self.n_support, :].contiguous().view(self.n_way * self.n_support, -1)
+        x_query = x[:, self.n_support:, :].contiguous().view(self.n_way * self.n_query, -1)
 
         if y is None:  # Classification task, assign labels (class indices) based on n_way
-            y_a_i = Variable(torch.from_numpy(np.repeat(range(self.n_way), self.n_support)))  # label for support data
+            y_support = torch.from_numpy(np.repeat(range(self.n_way), self.n_support))
         else:  # Regression task, keep labels as they are
-            y_var = Variable(y)
-            y_a_i = y_var[:, :self.n_support].contiguous().view(self.n_way * self.n_support,
-                                                                *y.size()[2:])  # label for support data
+            y_support = y[:, :self.n_support].contiguous().view(self.n_way * self.n_support, -1)
+
         if torch.cuda.is_available():
-            y_a_i = y_a_i.cuda()
+            y_support = y_support.cuda()
 
-        fast_parameters = list(self.parameters())  # the first gradient calcuated in line 45 is based on original weight
-        for weight in self.parameters():
-            weight.fast = None
         self.zero_grad()
-        for task_step in range(self.task_update_num):
-            scores = self.forward(x_a_i)
-            set_loss = self.loss_fn(scores, y_a_i)
-            grad = torch.autograd.grad(set_loss, fast_parameters, create_graph=True)  # build full graph support gradient of gradient
-            if self.approx:
-                # Verify implementation of MAML approx -- currently not good results on TM
-                grad = [g.detach() for g in
-                        grad]  # do not calculate gradient of gradient if using first order approximation
-            fast_parameters = []
-            for k, weight in enumerate(self.parameters()):
-                # for usage of weight.fast, please see Linear_fw, Conv_fw in blocks.py
-                if weight.fast is None:
-                    weight.fast = weight - self.inner_lr * grad[k]  # create weight.fast
-                else:
-                    weight.fast = weight.fast - self.inner_lr * grad[
-                        k]  # create an updated weight.fast, note the '-' is not merely minus value, but to create a new weight.fast
-                fast_parameters.append(
-                    weight.fast)  # gradients calculated in line 45 are based on newest fast weight, but the graph will retain the link to old weight.fasts
 
-        scores = self.forward(x_b_i)
+        latents_z = self.encoder(x_support)
+        weights = self.decoder(latents_z)
+        clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
+        self.classifier.weight.fast = clf_weight
+        self.classifier.bias.fast = clf_bias
+
+        for i in range(self.inner_update_step):
+            scores = self.forward(x_support)
+            set_loss = self.loss_fn(scores, y_support)
+            grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
+            latents_z = latents_z - self.inner_lr * grad
+
+            weights = self.decoder(latents_z)
+            clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
+            self.classifier.weight.fast = clf_weight
+            self.classifier.bias.fast = clf_bias
+
+        scores = self.forward(x_query)
         return scores
 
     def set_forward_adaptation(self, x, is_feature=False):  # overwrite parrent function
@@ -122,15 +164,14 @@ class LEO(MetaTemplate):
         scores = self.set_forward(x, y)
 
         if y is None:  # Classification task
-            y_b_i = Variable(torch.from_numpy(np.repeat(range(self.n_way), self.n_query)))
+            y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
         else:  # Regression task
-            y_var = Variable(y)
-            y_b_i = y_var[:, self.n_support:].contiguous().view(self.n_way * self.n_query, *y.size()[2:])
+            y_query = y[:, self.n_support:].contiguous().view(self.n_way * self.n_query, -1)
 
         if torch.cuda.is_available():
-            y_b_i = y_b_i.cuda()
+            y_query = y_query.cuda()
 
-        loss = self.loss_fn(scores, y_b_i)
+        loss = self.loss_fn(scores, y_query)
 
         return loss
 
