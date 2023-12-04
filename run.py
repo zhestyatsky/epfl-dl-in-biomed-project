@@ -34,7 +34,10 @@ def initialize_dataset_model(cfg):
         backbone = instantiate(cfg.backbone, x_dim=train_dataset.dim)
 
     # Instantiate few-shot method class
-    model = instantiate(cfg.method.cls, backbone=backbone)
+    if cfg.method.name == "leo":
+        model = instantiate(cfg.method.cls, x_dim=train_dataset.dim, backbone=backbone)
+    else:
+        model = instantiate(cfg.method.cls, backbone=backbone)
 
     if torch.cuda.is_available():
         model = model.cuda()

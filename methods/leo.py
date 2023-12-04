@@ -65,7 +65,7 @@ class DecodingNetwork(nn.Module):
 
 
 class LEO(MetaTemplate):
-    def __init__(self, backbone, n_way, n_support, n_task, task_update_num, inner_lr,
+    def __init__(self, x_dim, backbone, n_way, n_support, n_task, task_update_num, inner_lr,
                 inner_update_step, l2_penalty_coef, kl_coef, orthogonality_penalty_coef, 
                 encoder_penalty_coef, approx=False):
             """
@@ -107,8 +107,8 @@ class LEO(MetaTemplate):
             self.encoder_penalty_coef = encoder_penalty_coef
             self.approx = approx # first order approximation
 
-            self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, embedding_dim=self.feat_dim)
-            self.decoder = DecodingNetwork(n_way=n_way, embedding_dim=self.feat_dim, output_dim=self.feat_dim+1)
+            self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, embedding_dim=x_dim)
+            self.decoder = DecodingNetwork(n_way=n_way, embedding_dim=x_dim, output_dim=self.feat_dim+1)
 
     def forward(self, x):
         out = self.feature.forward(x)
