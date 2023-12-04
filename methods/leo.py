@@ -54,13 +54,13 @@ class EncodingNetwork(nn.Module):
 
 
 class DecodingNetwork(nn.Module):
-    def __init__(self, n_way, embedding_dim, output_dim):
+    def __init__(self, n_way, encoder_dim, output_dim):
         super().__init__()
         self.n_way = n_way
-        self.embedding_dim = embedding_dim
+        self.encoder_dim = encoder_dim
         self.output_dim = output_dim
 
-        self.decoding_layer = nn.Linear(embedding_dim, 2 * output_dim)
+        self.decoding_layer = nn.Linear(encoder_dim, 2 * output_dim)
         self.normal_distribution = NormalDistribution(n_way=n_way, output_dim=output_dim)
 
     def forward(self, latent_output):
@@ -109,7 +109,7 @@ class LEO(MetaTemplate):
             self.encoder_penalty_coef = encoder_penalty_coef
 
             self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.feat_dim)
-            self.decoder = DecodingNetwork(n_way=n_way, embedding_dim=x_dim, output_dim=self.feat_dim+1)
+            self.decoder = DecodingNetwork(n_way=n_way, embedding_dim=self.feat_dim, output_dim=self.feat_dim+1)
 
     def forward(self, x):
         out = self.feature.forward(x)
