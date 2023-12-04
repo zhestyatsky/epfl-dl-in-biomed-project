@@ -140,12 +140,10 @@ class LEO(MetaTemplate):
 
         latents_z = self.encoder(x_support)
         weights = self.decoder(latents_z)
-        print(f"clf.weight.shape:{self.classifier.weight.shape},clf.bias.shape:{self.classifier.bias.shape}")
         clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
         clf_bias = clf_bias.squeeze()
         self.classifier.weight.fast = clf_weight
         self.classifier.bias.fast = clf_bias
-        print(f"clf.weight.fast.shape:{self.classifier.weight.fast.shape},clf.bias.fast.shape:{self.classifier.bias.fast.shape}")
 
         for i in range(self.num_adaptation_steps):
             scores = self.forward(x_support)
@@ -155,6 +153,7 @@ class LEO(MetaTemplate):
 
             weights = self.decoder(latents_z)
             clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
+            clf_bias = clf_bias.squeeze()
             self.classifier.weight.fast = clf_weight
             self.classifier.bias.fast = clf_bias
 
