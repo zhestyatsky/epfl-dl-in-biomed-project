@@ -8,6 +8,25 @@ from backbones.blocks import Linear_fw
 from methods.meta_template import MetaTemplate
 
 
+class NormalDistribution(nn.Module):
+    def __init__(self, n_way, output_dim):
+        super().__init__()
+        self.n_way = n_way
+        self.output_dim = output_dim
+
+    def forward(self, means, stds):
+        gaussian_vectors = torch.normal(
+            torch.zeros(self.n_way, self.output_dim),
+            torch.ones(self.n_way, self.output_dim),
+        )
+
+        if torch.cuda.is_available():
+            gaussian_vectors = gaussian_vectors.cuda()
+
+        output = gaussian_vectors * stds + means
+        return output
+
+
 class EncodingNetwork(nn.Module):
     def __init__(self, n_support, n_way, x_dim, encoder_dim):
         super().__init__()
@@ -17,6 +36,7 @@ class EncodingNetwork(nn.Module):
 
         self.encoding_layer = nn.Linear(x_dim, encoder_dim)
         self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim)
+        self.normal_distribution = NormalDistribution(n_way=n_way, output_dim=encoder_dim)
 
     def forward(self, x_support):
         encoded_x_support = self.encoding_layer(x_support)
@@ -29,17 +49,7 @@ class EncodingNetwork(nn.Module):
         relation_net_per_class_output = relation_net_output.view(self.n_way, self.n_support, -1).mean(dim=1)
 
         means, stds = relation_net_per_class_output.chunk(chunks=2, dim=-1)
-
-        gaussian_vectors = torch.normal(
-            torch.zeros(self.n_way, self.encoder_dim),
-            torch.ones(self.n_way, self.encoder_dim),
-        )
-
-        if torch.cuda.is_available():
-            gaussian_vectors = gaussian_vectors.cuda()
-
-        output = gaussian_vectors * stds + means
-
+        output = self.normal_distribution(means, stds)
         return output
 
 
@@ -51,22 +61,12 @@ class DecodingNetwork(nn.Module):
         self.output_dim = output_dim
 
         self.decoding_layer = nn.Linear(embedding_dim, 2 * output_dim)
+        self.normal_distribution = NormalDistribution(n_way=n_way, output_dim=output_dim)
 
     def forward(self, latent_output):
         decoded_output = self.decoding_layer(latent_output)
-
         means, stds = decoded_output.chunk(chunks=2, dim=-1)
-
-        gaussian_vectors = torch.normal(
-            torch.zeros(self.n_way, self.output_dim),
-            torch.ones(self.n_way, self.output_dim),
-        )
-
-        if torch.cuda.is_available():
-            gaussian_vectors = gaussian_vectors.cuda()
-
-        output = gaussian_vectors * stds + means
-
+        output = self.normal_distribution(means, stds)
         return output
 
 
