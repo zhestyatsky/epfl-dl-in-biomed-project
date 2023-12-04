@@ -9,14 +9,14 @@ from methods.meta_template import MetaTemplate
 
 
 class EncodingNetwork(nn.Module):
-    def __init__(self, n_support, n_way, embedding_dim):
+    def __init__(self, n_support, n_way, x_dim, encoder_dim):
         super().__init__()
         self.n_support = n_support
         self.n_way = n_way
-        self.embedding_dim = embedding_dim
+        self.encoder_dim = encoder_dim
 
-        self.encoding_layer = nn.Linear(embedding_dim, embedding_dim)
-        self.relation_net = nn.Linear(2 * embedding_dim, 2 * embedding_dim)
+        self.encoding_layer = nn.Linear(x_dim, encoder_dim)
+        self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim)
 
     def forward(self, x_support):
         encoded_x_support = self.encoding_layer(x_support)
@@ -31,8 +31,8 @@ class EncodingNetwork(nn.Module):
         means, stds = relation_net_per_class_output.chunk(chunks=2, dim=-1)
 
         gaussian_vectors = torch.normal(
-            torch.zeros(self.n_way, self.embedding_dim),
-            torch.ones(self.n_way, self.embedding_dim),
+            torch.zeros(self.n_way, self.encoder_dim),
+            torch.ones(self.n_way, self.encoder_dim),
         )
 
         output = gaussian_vectors * stds + means
@@ -66,7 +66,7 @@ class DecodingNetwork(nn.Module):
 
 class LEO(MetaTemplate):
     def __init__(self, x_dim, backbone, n_way, n_support, n_task, task_update_num, inner_lr,
-                inner_update_step, l2_penalty_coef, kl_coef, orthogonality_penalty_coef, 
+                num_adaptation_steps, l2_penalty_coef, kl_coef, orthogonality_penalty_coef,
                 encoder_penalty_coef, approx=False):
             """
             Initialize the LEO (Latent Embedding Optimization) model.
@@ -78,7 +78,7 @@ class LEO(MetaTemplate):
                 n_task (int): Number of tasks.
                 task_update_num (int): Number of task update steps.
                 inner_lr (float): Inner learning rate for task updates.
-                inner_update_step (int): Number of inner update steps.
+                num_adaptation_steps (int): Number of inner loop adaptation steps.
                 l2_penalty_coef (float): Coefficient for L2 penalty.
                 kl_coef (float): Coefficient for KL divergence penalty.
                 orthogonality_penalty_coef (float): Coefficient for orthogonality penalty.
@@ -100,14 +100,14 @@ class LEO(MetaTemplate):
             self.n_task = n_task
             self.task_update_num = task_update_num
             self.inner_lr = inner_lr 
-            self.inner_update_step = inner_update_step
+            self.num_adaptation_steps = num_adaptation_steps
             self.l2_penalty_coef = l2_penalty_coef  
             self.kl_coef = kl_coef
             self.orthogonality_penalty_coef = orthogonality_penalty_coef
             self.encoder_penalty_coef = encoder_penalty_coef
             self.approx = approx # first order approximation
 
-            self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, embedding_dim=x_dim)
+            self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.feat_dim)
             self.decoder = DecodingNetwork(n_way=n_way, embedding_dim=x_dim, output_dim=self.feat_dim+1)
 
     def forward(self, x):
@@ -143,7 +143,7 @@ class LEO(MetaTemplate):
         self.classifier.weight.fast = clf_weight
         self.classifier.bias.fast = clf_bias
 
-        for i in range(self.inner_update_step):
+        for i in range(self.num_adaptation_steps):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
