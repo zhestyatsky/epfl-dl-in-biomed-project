@@ -104,10 +104,10 @@ def train(train_loader, val_loader, model, cfg):
             cfg.method.start_epoch = tmp['epoch'] + 1
             model.load_state_dict(tmp['state'])
 
-    model_parameters = (
-        [*model.encoder.parameters(), *model.decoder.parameters()] if cfg.method.name == "leo"
-        else model.parameters()
-    )
+    if cfg.method.name == "leo":
+        model_parameters = [*model.encoder.parameters(), *model.decoder.parameters()]
+    else:
+        model_parameters = model.parameters()
     optimizer = instantiate(cfg.optimizer_cls, params=model_parameters)
 
     print("Model Architecture:")
