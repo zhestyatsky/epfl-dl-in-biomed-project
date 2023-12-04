@@ -103,7 +103,7 @@ def train(train_loader, val_loader, model, cfg):
 
     model_parameters = (
         [*model.encoder.parameters(), *model.decoder.parameters()] if cfg.method.name == "leo"
-        else model.parameters
+        else model.parameters()
     )
     optimizer = instantiate(cfg.optimizer_cls, params=model_parameters)
 
