@@ -1,4 +1,3 @@
-# This code is modified from https://github.com/dragen1860/MAML-Pytorch and https://github.com/katerakelly/pytorch-maml
 import numpy as np
 import torch
 import torch.nn as nn
@@ -73,7 +72,7 @@ class DecodingNetwork(nn.Module):
 class LEO(MetaTemplate):
     def __init__(self, x_dim, backbone, n_way, n_support, n_task, inner_lr, num_adaptation_steps, l2_penalty_coef,
                  kl_coef, orthogonality_penalty_coef, encoder_penalty_coef):
-            """
+        """
             Initialize the LEO (Latent Embedding Optimization) model.
 
             Args:
@@ -87,29 +86,29 @@ class LEO(MetaTemplate):
                 kl_coef (float): Coefficient for KL divergence penalty.
                 orthogonality_penalty_coef (float): Coefficient for orthogonality penalty.
                 encoder_penalty_coef (float): Coefficient for encoder penalty.
-            """
-            super(LEO, self).__init__(backbone, n_way, n_support, change_way=False)
+        """
+        super(LEO, self).__init__(backbone, n_way, n_support, change_way=False)
 
-            self.classifier = Linear_fw(self.feat_dim, n_way)
-            self.classifier.bias.data.fill_(0)
+        self.classifier = Linear_fw(self.feat_dim, n_way)
+        self.classifier.bias.data.fill_(0)
 
-            if n_way == 1:
-                self.type = "regression"
-                self.loss_fn = nn.MSELoss()
-            else:
-                self.type = "classification"
-                self.loss_fn = nn.CrossEntropyLoss()
+        if n_way == 1:
+            self.type = "regression"
+            self.loss_fn = nn.MSELoss()
+        else:
+            self.type = "classification"
+            self.loss_fn = nn.CrossEntropyLoss()
 
-            self.n_task = n_task
-            self.inner_lr = inner_lr
-            self.num_adaptation_steps = num_adaptation_steps
-            self.l2_penalty_coef = l2_penalty_coef  
-            self.kl_coef = kl_coef
-            self.orthogonality_penalty_coef = orthogonality_penalty_coef
-            self.encoder_penalty_coef = encoder_penalty_coef
+        self.n_task = n_task
+        self.inner_lr = inner_lr
+        self.num_adaptation_steps = num_adaptation_steps
+        self.l2_penalty_coef = l2_penalty_coef
+        self.kl_coef = kl_coef
+        self.orthogonality_penalty_coef = orthogonality_penalty_coef
+        self.encoder_penalty_coef = encoder_penalty_coef
 
-            self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.feat_dim)
-            self.decoder = DecodingNetwork(n_way=n_way, encoder_dim=self.feat_dim, output_dim=self.feat_dim+1)
+        self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.feat_dim)
+        self.decoder = DecodingNetwork(n_way=n_way, encoder_dim=self.feat_dim, output_dim=self.feat_dim + 1)
 
     def forward(self, x):
         out = self.feature.forward(x)
