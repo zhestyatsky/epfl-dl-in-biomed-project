@@ -52,7 +52,7 @@ class DecodingNetwork(nn.Module):
     def forward(self, latent_output):
         decoded_output = self.decoding_layer(latent_output)
 
-        means, stds = decoded_output(chunks=2, dim=-1)
+        means, stds = decoded_output.chunk(chunks=2, dim=-1)
 
         gaussian_vectors = torch.normal(
             torch.zeros(self.n_way, self.output_dim),
