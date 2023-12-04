@@ -109,7 +109,7 @@ class LEO(MetaTemplate):
             self.encoder_penalty_coef = encoder_penalty_coef
 
             self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.feat_dim)
-            self.decoder = DecodingNetwork(n_way=n_way, embedding_dim=self.feat_dim, output_dim=self.feat_dim+1)
+            self.decoder = DecodingNetwork(n_way=n_way, encoder_dim=self.feat_dim, output_dim=self.feat_dim+1)
 
     def forward(self, x):
         out = self.feature.forward(x)
