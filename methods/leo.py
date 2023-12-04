@@ -2,9 +2,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import wandb
+import math
 
 from backbones.blocks import Linear_fw
 from methods.meta_template import MetaTemplate
+
 
 
 class NormalDistribution(nn.Module):
@@ -27,17 +29,31 @@ class NormalDistribution(nn.Module):
 
 
 class EncodingNetwork(nn.Module):
-    def __init__(self, n_support, n_way, x_dim, encoder_dim):
+    def __init__(self, n_support, n_way, x_dim, encoder_dim, dropout):
         super().__init__()
         self.n_support = n_support
         self.n_way = n_way
         self.encoder_dim = encoder_dim
+        self.dropout = dropout
 
         self.encoding_layer = nn.Linear(x_dim, encoder_dim)
         self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim)
         self.normal_distribution = NormalDistribution(n_way=n_way, output_dim=encoder_dim)
 
+    def log_prob(self, x, mean, var):
+        log_prob_density = - 0.5 * ((x - mean) / (var + 1e-10)) ** 2
+        normalization_const = torch.log(var + 1e-10) + 0.5 * math.log(2 * math.pi)
+        return log_prob_density - normalization_const
+
+    def kl_divergence(self, latents_z, mean, var):
+        if torch.cuda.is_available():
+            return torch.mean(self.log_prob(latents_z, mean, var) - self.log_prob(latents_z, torch.zeros(mean.size()).cuda(), torch.ones(var.size()).cuda()))
+        else:
+            return torch.mean(self.log_prob(latents_z, mean, var) - self.log_prob(latents_z, torch.zeros(mean.size()), torch.ones(var.size())))
+
     def forward(self, x_support):
+
+        x_support = self.dropout(x_support)
         encoded_x_support = self.encoding_layer(x_support)
 
         lhs_relation_net_input = encoded_x_support.unsqueeze(1).tile((1, self.n_way * self.n_support, 1))
@@ -49,7 +65,9 @@ class EncodingNetwork(nn.Module):
 
         means, stds = relation_net_per_class_output.chunk(chunks=2, dim=-1)
         output = self.normal_distribution(means, stds)
-        return output
+
+        kl_div = self.kl_divergence(output, means, stds)
+        return output, kl_div
 
 
 class DecodingNetwork(nn.Module):
@@ -70,8 +88,8 @@ class DecodingNetwork(nn.Module):
 
 
 class LEO(MetaTemplate):
-    def __init__(self, x_dim, backbone, n_way, n_support, n_task, inner_lr, num_adaptation_steps, l2_penalty_coef,
-                 kl_coef, orthogonality_penalty_coef, encoder_penalty_coef):
+    def __init__(self, x_dim, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init, inner_update_step, finetuning_update_step, l2_penalty_coef,
+                 kl_coef, orthogonality_penalty_coef, encoder_penalty_coef, dropout):
         """
             Initialize the LEO (Latent Embedding Optimization) model.
 
@@ -81,7 +99,8 @@ class LEO(MetaTemplate):
                 n_support (int): Number of support examples per class.
                 n_task (int): Number of tasks.
                 inner_lr (float): Inner learning rate for task updates.
-                num_adaptation_steps (int): Number of inner loop adaptation steps.
+                inner_update_step (int): Number of inner loop adaptation steps.
+                finetuning_update_step (int): Number of inner loop finetuning steps.
                 l2_penalty_coef (float): Coefficient for L2 penalty.
                 kl_coef (float): Coefficient for KL divergence penalty.
                 orthogonality_penalty_coef (float): Coefficient for orthogonality penalty.
@@ -100,15 +119,22 @@ class LEO(MetaTemplate):
             self.loss_fn = nn.CrossEntropyLoss()
 
         self.n_task = n_task
-        self.inner_lr = inner_lr
-        self.num_adaptation_steps = num_adaptation_steps
+        self.inner_lr_init = inner_lr_init
+        self.finetuning_lr_init = finetuning_lr_init
+        self.inner_update_step = inner_update_step
+        self.finetuning_update_step = finetuning_update_step
         self.l2_penalty_coef = l2_penalty_coef
         self.kl_coef = kl_coef
         self.orthogonality_penalty_coef = orthogonality_penalty_coef
         self.encoder_penalty_coef = encoder_penalty_coef
 
-        self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.feat_dim)
+        self.dropout = nn.Dropout(p=dropout)
+        self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.feat_dim, dropout=self.dropout)
         self.decoder = DecodingNetwork(n_way=n_way, encoder_dim=self.feat_dim, output_dim=self.feat_dim + 1)
+
+        self.inner_lr = nn.Parameter(torch.tensor(inner_lr_init))
+        self.finetuning_lr = nn.Parameter(torch.tensor(finetuning_lr_init))
+        
 
     def forward(self, x):
         out = self.feature.forward(x)
@@ -119,6 +145,25 @@ class LEO(MetaTemplate):
             scores = scores.squeeze(1)
 
         return scores
+
+    def orthogonality(self, weight):
+        """
+            Calculate the orthogonality penalty for a weight matrix.
+
+            Args:
+            - weight (torch.Tensor): The weight matrix to calculate the orthogonality penalty for.
+
+            Returns:
+            - torch.Tensor: The orthogonality penalty, computed as the mean squared difference
+            between the correlation matrix of the weight matrix and the identity matrix.
+        """
+        w_square = weight @ weight.t()
+        w_norm = torch.norm(weight, dim=1, keepdim=True) + 1e-10
+        correlation_matrix = w_square / (w_norm @ w_norm.t())
+        identity = torch.eye(correlation_matrix.size(0))
+        if torch.cuda.is_available():
+            identity = identity.cuda()
+        return torch.mean((correlation_matrix - identity) ** 2)
 
     def set_forward(self, x, y=None):
         if torch.cuda.is_available():
@@ -137,14 +182,17 @@ class LEO(MetaTemplate):
 
         self.zero_grad()
 
-        latents_z = self.encoder(x_support)
+        latents_z, self.kl_div = self.encoder(x_support)
+        latents_z_init = latents_z
         weights = self.decoder(latents_z)
         clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
         clf_bias = clf_bias.squeeze()
         self.classifier.weight.fast = clf_weight
         self.classifier.bias.fast = clf_bias
 
-        for i in range(self.num_adaptation_steps):
+
+        ### meta train inner loop ###
+        for i in range(self.inner_update_step):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
@@ -156,7 +204,29 @@ class LEO(MetaTemplate):
             self.classifier.weight.fast = clf_weight
             self.classifier.bias.fast = clf_bias
 
+        # Calculate encoder penalty: mean squared difference between initial and current latent representations,
+        # encouraging stability and continuity in the learned latent space.(encourages the encoder to produce latent
+        # representations that are close to their initial values)
+        self.encoder_penalty = torch.mean((latents_z_init - latents_z) ** 2)
+
+
+        ### inner finetuning ###
+        for i in range(self.finetuning_update_step):
+            scores = self.forward(x_support)
+            set_loss = self.loss_fn(scores, y_support)
+            grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
+
+            weights = self.decoder(latents_z)
+            weights = weights - self.finetuning_lr * weights.grad
+            clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
+            clf_bias = clf_bias.squeeze()
+            self.classifier.weight.fast = clf_weight
+            self.classifier.bias.fast = clf_bias
         scores = self.forward(x_query)
+
+        self.orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
+
+
         return scores
 
     def set_forward_adaptation(self, x, is_feature=False):  # overwrite parrent function
@@ -175,7 +245,9 @@ class LEO(MetaTemplate):
 
         loss = self.loss_fn(scores, y_query)
 
-        return loss
+        final_loss = loss + self.kl_coef * self.kl_div + self.encoder_penalty_coef * self.encoder_penalty + self.orthogonality_penalty_coef * self.orthogonality_penalty
+
+        return final_loss
 
     def train_loop(self, epoch, train_loader, optimizer):  # overwrite parrent function
         print_freq = 10
