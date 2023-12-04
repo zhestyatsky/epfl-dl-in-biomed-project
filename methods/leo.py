@@ -35,6 +35,9 @@ class EncodingNetwork(nn.Module):
             torch.ones(self.n_way, self.encoder_dim),
         )
 
+        if torch.cuda.is_available():
+            gaussian_vectors = gaussian_vectors.cuda()
+
         output = gaussian_vectors * stds + means
 
         return output
@@ -58,6 +61,9 @@ class DecodingNetwork(nn.Module):
             torch.zeros(self.n_way, self.output_dim),
             torch.ones(self.n_way, self.output_dim),
         )
+
+        if torch.cuda.is_available():
+            gaussian_vectors = gaussian_vectors.cuda()
 
         output = gaussian_vectors * stds + means
 
