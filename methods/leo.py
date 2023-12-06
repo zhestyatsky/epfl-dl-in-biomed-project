@@ -38,10 +38,11 @@ class EncodingNetwork(nn.Module):
         self.encoding_layer = nn.Linear(x_dim, encoder_dim)
         self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim)
         self.normal_distribution = NormalDistribution(n_way=n_way, output_dim=encoder_dim)
+        self.std_offset = 1e-10
 
     def log_prob(self, x, means, stds):
-        log_prob_density = - 0.5 * ((x - means) / (stds + 1e-10)) ** 2
-        normalization_const = torch.log(stds + 1e-10) + 0.5 * math.log(2 * math.pi)
+        log_prob_density = - 0.5 * ((x - means) / (stds + self.std_offset)) ** 2
+        normalization_const = torch.log(stds + self.std_offset) + 0.5 * math.log(2 * math.pi)
         return log_prob_density - normalization_const
 
     def kl_divergence(self, latents_z, means, stds):
