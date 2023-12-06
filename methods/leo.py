@@ -56,7 +56,6 @@ class EncodingNetwork(nn.Module):
         self.normal_distribution = NormalDistribution(n_way=n_way, output_dim=encoder_dim)
 
     def forward(self, x_support):
-
         x_support = self.dropout(x_support)
         encoded_x_support = self.encoding_layer(x_support)
 
@@ -185,13 +184,12 @@ class LEO(MetaTemplate):
         self.zero_grad()
 
         latents_z, self.kl_div = self.encoder(x_support)
-        latents_z_init = latents_z
+        latents_z_init = latents_z.detach()
         weights = self.decoder(latents_z)
         clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
         clf_bias = clf_bias.squeeze()
         self.classifier.weight.fast = clf_weight
         self.classifier.bias.fast = clf_bias
-
 
         ### meta train inner loop ###
         for i in range(self.inner_update_step):
@@ -211,7 +209,6 @@ class LEO(MetaTemplate):
         # representations that are close to their initial values)
         self.encoder_penalty = torch.mean((latents_z_init - latents_z) ** 2)
 
-
         ### inner finetuning ###
         for i in range(self.finetuning_update_step):
             scores = self.forward(x_support)
@@ -227,7 +224,6 @@ class LEO(MetaTemplate):
         scores = self.forward(x_query)
 
         self.orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
-
 
         return scores
 
