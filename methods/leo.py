@@ -213,10 +213,8 @@ class LEO(MetaTemplate):
         for i in range(self.finetuning_update_step):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
-            grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
-
-            weights = self.decoder(latents_z)
-            weights = weights - self.finetuning_lr * weights.grad
+            grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
+            weights = weights - self.finetuning_lr * grad
             clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
             clf_bias = clf_bias.squeeze()
             self.classifier.weight.fast = clf_weight
