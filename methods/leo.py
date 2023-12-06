@@ -166,6 +166,14 @@ class LEO(MetaTemplate):
             identity = identity.cuda()
         return torch.mean((correlation_matrix - identity) ** 2)
 
+    # TODO: Rename and add backbone weights update, i.e. increase the output dimension of decoder w.r.t. so that it
+    #       predicts weights for both classifier and backbone; afterwards use the predicted weights for update.
+    def update_weights(self, weights):
+        clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
+        clf_bias = clf_bias.squeeze()
+        self.classifier.weight.fast = clf_weight
+        self.classifier.bias.fast = clf_bias
+
     def set_forward(self, x, y=None):
         if torch.cuda.is_available():
             x = x.cuda()
@@ -186,10 +194,7 @@ class LEO(MetaTemplate):
         latents_z, self.kl_div = self.encoder(x_support)
         latents_z_init = latents_z.detach()
         weights = self.decoder(latents_z)
-        clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
-        clf_bias = clf_bias.squeeze()
-        self.classifier.weight.fast = clf_weight
-        self.classifier.bias.fast = clf_bias
+        self.update_weights(weights)
 
         ### meta train inner loop ###
         for i in range(self.inner_update_step):
@@ -199,10 +204,7 @@ class LEO(MetaTemplate):
             latents_z = latents_z - self.inner_lr * grad
 
             weights = self.decoder(latents_z)
-            clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
-            clf_bias = clf_bias.squeeze()
-            self.classifier.weight.fast = clf_weight
-            self.classifier.bias.fast = clf_bias
+            self.update_weights(weights)
 
         # Calculate encoder penalty: mean squared difference between initial and current latent representations,
         # encouraging stability and continuity in the learned latent space.(encourages the encoder to produce latent
@@ -215,10 +217,8 @@ class LEO(MetaTemplate):
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
             weights = weights - self.finetuning_lr * grad
-            clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
-            clf_bias = clf_bias.squeeze()
-            self.classifier.weight.fast = clf_weight
-            self.classifier.bias.fast = clf_bias
+            self.update_weights(weights)
+
         scores = self.forward(x_query)
 
         self.orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
