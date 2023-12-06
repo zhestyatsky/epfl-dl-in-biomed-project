@@ -13,6 +13,7 @@ class NormalDistribution(nn.Module):
         super().__init__()
         self.n_way = n_way
         self.output_dim = output_dim
+        self.std_offset = 1e-10
 
         self.gaussian_means = torch.zeros(self.n_way, self.output_dim)
         self.gaussian_stds = torch.ones(self.n_way, self.output_dim)
@@ -53,7 +54,6 @@ class EncodingNetwork(nn.Module):
         self.encoding_layer = nn.Linear(x_dim, encoder_dim)
         self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim)
         self.normal_distribution = NormalDistribution(n_way=n_way, output_dim=encoder_dim)
-        self.std_offset = 1e-10
 
     def forward(self, x_support):
 
