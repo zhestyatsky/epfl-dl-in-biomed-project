@@ -45,11 +45,13 @@ class EncodingNetwork(nn.Module):
         normalization_const = torch.log(stds + self.std_offset) + 0.5 * math.log(2 * math.pi)
         return log_prob_density - normalization_const
 
-    def kl_divergence(self, latents_z, means, stds):
+    def kl_divergence(self, x, means, stds):
+        gaussian_means, gaussian_stds = torch.zeros(means.size()), torch.ones(stds.size())
         if torch.cuda.is_available():
-            return torch.mean(self.log_prob(latents_z, means, stds) - self.log_prob(latents_z, torch.zeros(means.size()).cuda(), torch.ones(stds.size()).cuda()))
-        else:
-            return torch.mean(self.log_prob(latents_z, means, stds) - self.log_prob(latents_z, torch.zeros(means.size()), torch.ones(stds.size())))
+            gaussian_means, gaussian_stds = gaussian_means.cuda(), gaussian_stds.cuda()
+        kl_components = self.log_prob(x, means, stds) - self.log_prob(x, gaussian_means, gaussian_stds)
+        kl = kl_components.mean()
+        return kl
 
     def forward(self, x_support):
 
