@@ -14,17 +14,32 @@ class NormalDistribution(nn.Module):
         self.n_way = n_way
         self.output_dim = output_dim
 
+        self.gaussian_means = torch.zeros(self.n_way, self.output_dim)
+        self.gaussian_stds = torch.ones(self.n_way, self.output_dim)
+
+        if torch.cuda.is_available():
+            self.gaussian_means = self.gaussian_means.cuda()
+            self.gaussian_stds = self.gaussian_stds.cuda()
+
     def forward(self, means, stds):
-        gaussian_vectors = torch.normal(
-            torch.zeros(self.n_way, self.output_dim),
-            torch.ones(self.n_way, self.output_dim),
-        )
+        gaussian_vectors = torch.normal(self.gaussian_means, self.gaussian_stds)
 
         if torch.cuda.is_available():
             gaussian_vectors = gaussian_vectors.cuda()
 
         output = gaussian_vectors * stds + means
-        return output
+        kl = self.kl_divergence(output, means, stds)
+        return output, kl
+
+    def log_prob(self, x, means, stds):
+        log_prob_density = - 0.5 * ((x - means) / (stds + self.std_offset)) ** 2
+        normalization_const = torch.log(stds + self.std_offset) + 0.5 * math.log(2 * math.pi)
+        return log_prob_density - normalization_const
+
+    def kl_divergence(self, x, means, stds):
+        kl_components = self.log_prob(x, means, stds) - self.log_prob(x, self.gaussian_means, self.gaussian_stds)
+        kl = kl_components.mean()
+        return kl
 
 
 class EncodingNetwork(nn.Module):
@@ -40,19 +55,6 @@ class EncodingNetwork(nn.Module):
         self.normal_distribution = NormalDistribution(n_way=n_way, output_dim=encoder_dim)
         self.std_offset = 1e-10
 
-    def log_prob(self, x, means, stds):
-        log_prob_density = - 0.5 * ((x - means) / (stds + self.std_offset)) ** 2
-        normalization_const = torch.log(stds + self.std_offset) + 0.5 * math.log(2 * math.pi)
-        return log_prob_density - normalization_const
-
-    def kl_divergence(self, x, means, stds):
-        gaussian_means, gaussian_stds = torch.zeros(means.size()), torch.ones(stds.size())
-        if torch.cuda.is_available():
-            gaussian_means, gaussian_stds = gaussian_means.cuda(), gaussian_stds.cuda()
-        kl_components = self.log_prob(x, means, stds) - self.log_prob(x, gaussian_means, gaussian_stds)
-        kl = kl_components.mean()
-        return kl
-
     def forward(self, x_support):
 
         x_support = self.dropout(x_support)
@@ -66,9 +68,7 @@ class EncodingNetwork(nn.Module):
         relation_net_per_class_output = relation_net_output.view(self.n_way, self.n_support, -1).mean(dim=1)
 
         means, stds = relation_net_per_class_output.chunk(chunks=2, dim=-1)
-        output = self.normal_distribution(means, stds)
-
-        kl_div = self.kl_divergence(output, means, stds)
+        output, kl_div = self.normal_distribution(means, stds)
         return output, kl_div
 
 
@@ -85,7 +85,7 @@ class DecodingNetwork(nn.Module):
     def forward(self, latent_output):
         decoded_output = self.decoding_layer(latent_output)
         means, stds = decoded_output.chunk(chunks=2, dim=-1)
-        output = self.normal_distribution(means, stds)
+        output, _ = self.normal_distribution(means, stds)
         return output
 
 
