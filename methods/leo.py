@@ -8,7 +8,6 @@ from backbones.blocks import Linear_fw
 from methods.meta_template import MetaTemplate
 
 
-
 class NormalDistribution(nn.Module):
     def __init__(self, n_way, output_dim):
         super().__init__()
@@ -40,16 +39,16 @@ class EncodingNetwork(nn.Module):
         self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim)
         self.normal_distribution = NormalDistribution(n_way=n_way, output_dim=encoder_dim)
 
-    def log_prob(self, x, mean, var):
-        log_prob_density = - 0.5 * ((x - mean) / (var + 1e-10)) ** 2
-        normalization_const = torch.log(var + 1e-10) + 0.5 * math.log(2 * math.pi)
+    def log_prob(self, x, means, stds):
+        log_prob_density = - 0.5 * ((x - means) / (stds + 1e-10)) ** 2
+        normalization_const = torch.log(stds + 1e-10) + 0.5 * math.log(2 * math.pi)
         return log_prob_density - normalization_const
 
-    def kl_divergence(self, latents_z, mean, var):
+    def kl_divergence(self, latents_z, means, stds):
         if torch.cuda.is_available():
-            return torch.mean(self.log_prob(latents_z, mean, var) - self.log_prob(latents_z, torch.zeros(mean.size()).cuda(), torch.ones(var.size()).cuda()))
+            return torch.mean(self.log_prob(latents_z, means, stds) - self.log_prob(latents_z, torch.zeros(means.size()).cuda(), torch.ones(stds.size()).cuda()))
         else:
-            return torch.mean(self.log_prob(latents_z, mean, var) - self.log_prob(latents_z, torch.zeros(mean.size()), torch.ones(var.size())))
+            return torch.mean(self.log_prob(latents_z, means, stds) - self.log_prob(latents_z, torch.zeros(means.size()), torch.ones(stds.size())))
 
     def forward(self, x_support):
 
