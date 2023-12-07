@@ -121,6 +121,7 @@ class LEO(MetaTemplate):
             self.type = "classification"
             self.loss_fn = nn.CrossEntropyLoss()
 
+        self.backbone_dims = backbone_dims
         self.n_task = n_task
         self.inner_lr_init = inner_lr_init
         self.finetuning_lr_init = finetuning_lr_init
@@ -133,7 +134,18 @@ class LEO(MetaTemplate):
         self.dropout = nn.Dropout(p=dropout)
         self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.feat_dim, dropout=self.dropout)
 
-        self.decoder = DecodingNetwork(latent_dim=self.feat_dim, output_dim=self.feat_dim + 1, n_outputs=n_way)
+        self.decoders = nn.ModuleList()
+        for layer_idx in range(len(backbone_dims)):
+            # We add +3 because each backbone block has bias vector in the Linear layer and 2 vectors in the BatchNorm
+            if layer_idx == 0:
+                output_dim = backbone_dims[layer_idx] + 3
+                n_outputs = x_dim
+            else:
+                output_dim = backbone_dims[layer_idx] + 3
+                n_outputs = backbone_dims[layer_idx-1]
+            self.decoders.append(DecodingNetwork(latent_dim=self.feat_dim, output_dim=output_dim, n_outputs=n_outputs))
+        # We add +1 because of the classifier bias vector
+        self.decoders.append(DecodingNetwork(latent_dim=self.feat_dim, output_dim=self.feat_dim+1, n_outputs=n_way))
 
         self.inner_lr = nn.Parameter(torch.tensor(inner_lr_init, dtype=torch.float32))
         self.finetuning_lr = nn.Parameter(torch.tensor(finetuning_lr_init, dtype=torch.float32))
@@ -167,10 +179,23 @@ class LEO(MetaTemplate):
             identity = identity.cuda()
         return torch.mean((correlation_matrix - identity) ** 2)
 
-    # TODO: Add backbone weights update, i.e. increase the output dimension of decoder so that it predicts weights for
-    #       both: classifier and backbone; afterwards use the predicted outputs for update similarly.
     def set_weights(self, weights):
-        clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
+        # First we set the backbone weights.
+        for layer_idx in range(self.backbone_dims):
+            weight = weights[layer_idx]
+            backbone_dim = self.backbone_dims[layer_idx]
+            # Each backbone block contains a linear layer with a bias followed by a BatchNorm
+            lin_weight, lin_bias, batch_norm_weight, batch_norm_bias = weight.split([backbone_dim, 1, 1, 1], dim=-1)
+            lin_bias = lin_bias.squeeze()
+            batch_norm_weight = batch_norm_weight.squeeze()
+            batch_norm_bias = batch_norm_bias.squeeze()
+            self.feature.encoder[layer_idx][0].weight = lin_weight
+            self.feature.encoder[layer_idx][0].bias = lin_bias
+            self.feature.encoder[layer_idx][1].weight = batch_norm_weight
+            self.feature.encoder[layer_idx][1].bias = batch_norm_bias
+
+        # Finally we set the classifier weights
+        clf_weight, clf_bias = weights[-1].split([self.feat_dim, 1], dim=-1)
         clf_bias = clf_bias.squeeze()
         self.classifier.weight.fast = clf_weight
         self.classifier.bias.fast = clf_bias
@@ -194,7 +219,7 @@ class LEO(MetaTemplate):
 
         latents_z, kl_div = self.encoder(x_support)
         latents_z_init = latents_z.detach()
-        weights = self.decoder(latents_z)
+        weights = [decoder(latents_z) for decoder in self.decoders(latents_z)]
         self.set_weights(weights)
 
         # Meta training inner loop
@@ -204,15 +229,16 @@ class LEO(MetaTemplate):
             grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
             latents_z = latents_z - self.inner_lr * grad
 
-            weights = self.decoder(latents_z)
+            weights = [decoder(latents_z) for decoder in self.decoder(latents_z)]
             self.set_weights(weights)
 
         # Meta training fine-tuning loop
         for _ in range(self.num_finetuning_steps):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
-            grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
-            weights = weights - self.finetuning_lr * grad
+            grad = torch.autograd.grad(set_loss, weights, create_graph=True)
+            for weight_idx in range(len(weights)):
+                weights[weight_idx] = weights[weight_idx] - self.finetuning_lr * grad[weight_idx]
             self.set_weights(weights)
 
         scores = self.forward(x_query)
