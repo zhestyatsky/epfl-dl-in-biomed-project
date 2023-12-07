@@ -170,7 +170,7 @@ class LEO(MetaTemplate):
 
     # TODO: Add backbone weights update, i.e. increase the output dimension of decoder so that it predicts weights for
     #       both: classifier and backbone; afterwards use the predicted outputs for update similarly.
-    def update_weights(self, weights):
+    def set_weights(self, weights):
         clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
         clf_bias = clf_bias.squeeze()
         self.classifier.weight.fast = clf_weight
@@ -196,7 +196,7 @@ class LEO(MetaTemplate):
         latents_z, kl_div = self.encoder(x_support)
         latents_z_init = latents_z.detach()
         weights = self.decoder(latents_z)
-        self.update_weights(weights)
+        self.set_weights(weights)
 
         # Meta training inner loop
         for _ in range(self.num_inner_steps):
@@ -206,7 +206,7 @@ class LEO(MetaTemplate):
             latents_z = latents_z - self.inner_lr * grad
 
             weights = self.decoder(latents_z)
-            self.update_weights(weights)
+            self.set_weights(weights)
 
         # Meta training fine-tuning loop
         for _ in range(self.num_finetuning_steps):
@@ -214,7 +214,7 @@ class LEO(MetaTemplate):
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
             weights = weights - self.finetuning_lr * grad
-            self.update_weights(weights)
+            self.set_weights(weights)
 
         scores = self.forward(x_query)
         encoder_penalty = torch.mean((latents_z_init - latents_z) ** 2)
