@@ -91,13 +91,15 @@ class DecodingNetwork(nn.Module):
 
 
 class LEO(MetaTemplate):
-    def __init__(self, x_dim, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init, num_inner_steps,
-                 num_finetuning_steps, kl_coef, orthogonality_penalty_coef, encoder_penalty_coef, dropout):
+    def __init__(self, x_dim, backbone_dims, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init,
+                 num_inner_steps, num_finetuning_steps, kl_coef, orthogonality_penalty_coef, encoder_penalty_coef,
+                 dropout):
         """
             Initialize the LEO (Latent Embedding Optimization) model.
 
             Args:
                 x_dim (int): Input data dimension.
+                backbone_dims (List[int]): Backbone layer dimensions.
                 backbone (object): The backbone of the model.
                 n_way (int): Number of classes in each task.
                 n_support (int): Number of support examples per class.
