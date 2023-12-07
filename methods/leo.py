@@ -127,6 +127,7 @@ class LEO(MetaTemplate):
         self.n_task = n_task
 
         # LEO specific hyperparameters
+        self.latent_space_dim = latent_space_dim
         self.inner_lr_init = inner_lr_init
         self.finetuning_lr_init = finetuning_lr_init
         self.num_inner_steps = num_inner_steps
@@ -224,8 +225,6 @@ class LEO(MetaTemplate):
         scores = self.forward(x_query)
         encoder_penalty = torch.mean((latents_z_init - latents_z) ** 2)
 
-        print(f'latent_z_init: {latents_z_init}, latent_z: {latents_z}, encoder_penalty: {encoder_penalty}')
-
         return scores, kl_div, encoder_penalty
 
     def set_forward(self, x, y=None):
@@ -257,8 +256,6 @@ class LEO(MetaTemplate):
                 self.encoder_penalty_coef * encoder_penalty +
                 self.orthogonality_penalty_coef * orthogonality_penalty
         )
-
-        print(f'loss: {loss}, kl_div: {kl_div}, encoder_penalty: {encoder_penalty}, orthogonality_penalty: {orthogonality_penalty}')
 
         return regularized_loss
 
