@@ -73,14 +73,10 @@ class EncodingNetwork(nn.Module):
 
 
 class DecodingNetwork(nn.Module):
-    def __init__(self, n_way, encoder_dim, output_dim):
+    def __init__(self, latent_dim, output_dim, n_outputs):
         super().__init__()
-        self.n_way = n_way
-        self.encoder_dim = encoder_dim
-        self.output_dim = output_dim
-
-        self.decoding_layer = nn.Linear(encoder_dim, 2 * output_dim)
-        self.normal_distribution = NormalDistribution(n_vectors=n_way, vector_dim=output_dim)
+        self.decoding_layer = nn.Linear(latent_dim, 2 * output_dim)
+        self.normal_distribution = NormalDistribution(n_vectors=n_outputs, vector_dim=output_dim)
 
     def forward(self, latent_output):
         decoded_output = self.decoding_layer(latent_output)
@@ -136,7 +132,8 @@ class LEO(MetaTemplate):
 
         self.dropout = nn.Dropout(p=dropout)
         self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.feat_dim, dropout=self.dropout)
-        self.decoder = DecodingNetwork(n_way=n_way, encoder_dim=self.feat_dim, output_dim=self.feat_dim + 1)
+
+        self.decoder = DecodingNetwork(latent_dim=self.feat_dim, output_dim=self.feat_dim + 1, n_outputs=n_way)
 
         self.inner_lr = nn.Parameter(torch.tensor(inner_lr_init, dtype=torch.float32))
         self.finetuning_lr = nn.Parameter(torch.tensor(finetuning_lr_init, dtype=torch.float32))
