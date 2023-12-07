@@ -230,7 +230,7 @@ class LEO(MetaTemplate):
 
         latents_z, kl_div = self.encoder(x_support)
         latents_z_init = latents_z.detach()
-        weights = [decoder(latents_z) for decoder in self.decoders(latents_z)]
+        weights = [decoder(latents_z) for decoder in self.decoders]
         self.set_weights(weights)
 
         # Meta training inner loop
@@ -240,7 +240,7 @@ class LEO(MetaTemplate):
             grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
             latents_z = latents_z - self.inner_lr * grad
 
-            weights = [decoder(latents_z) for decoder in self.decoder(latents_z)]
+            weights = [decoder(latents_z) for decoder in self.decoders]
             self.set_weights(weights)
 
         # Meta training fine-tuning loop
@@ -267,8 +267,8 @@ class LEO(MetaTemplate):
     def set_forward_loss(self, x, y=None):
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
 
-        # TODO: Perhaps include bias weights into orthogonality penalty calculation?
-        orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
+        # TODO: Include all decoders
+        orthogonality_penalty = self.orthogonality(list(self.decoders.parameters())[0])
 
         if y is None:  # Classification task
             y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
@@ -322,7 +322,7 @@ class LEO(MetaTemplate):
                 loss_q.backward()
 
                 # Check for NaN values in the gradients
-                for param in [*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr]:
+                for param in [*self.encoder.parameters(), *self.decoders.parameters(), self.inner_lr, self.finetuning_lr]:
                     if torch.isnan(param.grad).any():
                         # Create a mask for NaN values in the gradients
                         nan_mask = torch.isnan(param.grad)
@@ -330,8 +330,8 @@ class LEO(MetaTemplate):
                         param.grad[nan_mask] = 0.0
 
                 # clip gradient if necessary
-                nn.utils.clip_grad_value_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_threshold)
-                nn.utils.clip_grad_norm_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_norm_threshold)
+                nn.utils.clip_grad_value_([*self.encoder.parameters(), *self.decoders.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_threshold)
+                nn.utils.clip_grad_norm_([*self.encoder.parameters(), *self.decoders.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_norm_threshold)
 
                 optimizer.step()
                 task_count = 0
