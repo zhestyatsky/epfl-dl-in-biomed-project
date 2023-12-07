@@ -90,8 +90,7 @@ class DecodingNetwork(nn.Module):
 
 class LEO(MetaTemplate):
     def __init__(self, x_dim, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init, num_inner_steps,
-                 num_finetuning_steps, l2_penalty_coef, kl_coef, orthogonality_penalty_coef, encoder_penalty_coef,
-                 dropout):
+                 num_finetuning_steps, kl_coef, orthogonality_penalty_coef, encoder_penalty_coef, dropout):
         """
             Initialize the LEO (Latent Embedding Optimization) model.
 
@@ -103,7 +102,6 @@ class LEO(MetaTemplate):
                 inner_lr (float): Inner learning rate for task updates.
                 num_inner_steps (int): Number of inner loop adaptation steps.
                 num_finetuning_steps (int): Number of inner loop finetuning steps.
-                l2_penalty_coef (float): Coefficient for L2 penalty.
                 kl_coef (float): Coefficient for KL divergence penalty.
                 orthogonality_penalty_coef (float): Coefficient for orthogonality penalty.
                 encoder_penalty_coef (float): Coefficient for encoder penalty.
@@ -125,7 +123,6 @@ class LEO(MetaTemplate):
         self.finetuning_lr_init = finetuning_lr_init
         self.num_inner_steps = num_inner_steps
         self.num_finetuning_steps = num_finetuning_steps
-        self.l2_penalty_coef = l2_penalty_coef
         self.kl_coef = kl_coef
         self.orthogonality_penalty_coef = orthogonality_penalty_coef
         self.encoder_penalty_coef = encoder_penalty_coef
