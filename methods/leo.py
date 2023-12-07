@@ -174,7 +174,7 @@ class LEO(MetaTemplate):
         self.classifier.weight.fast = clf_weight
         self.classifier.bias.fast = clf_bias
 
-    def set_forward(self, x, y=None):
+    def calculate_scores_and_regularization_parameters(self, x, y=None):
         if torch.cuda.is_available():
             x = x.cuda()
 
@@ -219,11 +219,15 @@ class LEO(MetaTemplate):
 
         return scores, kl_div, encoder_penalty
 
+    def set_forward(self, x, y=None):
+        scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
+        return scores
+
     def set_forward_adaptation(self, x, is_feature=False):  # overwrite parrent function
         raise ValueError('MAML performs further adapation simply by increasing task_upate_num')
 
     def set_forward_loss(self, x, y=None):
-        scores, kl_div, encoder_penalty = self.set_forward(x, y)
+        scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
 
         # TODO: Perhaps include bias weights into orthogonality penalty calculation?
         orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
