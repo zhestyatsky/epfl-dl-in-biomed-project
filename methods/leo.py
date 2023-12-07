@@ -95,16 +95,19 @@ class LEO(MetaTemplate):
             Initialize the LEO (Latent Embedding Optimization) model.
 
             Args:
+                x_dim (int): Input data dimension.
                 backbone (object): The backbone of the model.
                 n_way (int): Number of classes in each task.
                 n_support (int): Number of support examples per class.
                 n_task (int): Number of tasks.
-                inner_lr (float): Inner learning rate for task updates.
+                inner_lr_init (float): Initial inner loop learning rate.
+                finetuning_lr_init (float): Initial finetuning loop learning rate.
                 num_inner_steps (int): Number of inner loop adaptation steps.
                 num_finetuning_steps (int): Number of inner loop finetuning steps.
                 kl_coef (float): Coefficient for KL divergence penalty.
                 orthogonality_penalty_coef (float): Coefficient for orthogonality penalty.
                 encoder_penalty_coef (float): Coefficient for encoder penalty.
+                dropout (float): Dropout probability.
         """
         super(LEO, self).__init__(backbone, n_way, n_support, change_way=False)
 
