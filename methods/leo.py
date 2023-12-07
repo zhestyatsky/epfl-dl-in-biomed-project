@@ -88,8 +88,8 @@ class DecodingNetwork(nn.Module):
 
 class LEO(MetaTemplate):
     def __init__(self, x_dim, backbone_dims, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init,
-                 num_inner_steps, num_finetuning_steps, kl_coef, orthogonality_penalty_coef, encoder_penalty_coef,
-                 dropout):
+                 num_inner_steps, num_finetuning_steps, kl_coef, orthogonality_penalty_coef, 
+                 encoder_penalty_coef, dropout, gradient_threshold, gradient_norm_threshold, latent_space_dim):
         """
             Initialize the LEO (Latent Embedding Optimization) model.
 
@@ -123,6 +123,9 @@ class LEO(MetaTemplate):
 
         self.backbone_dims = backbone_dims
         self.n_task = n_task
+
+        # LEO specific hyperparameters
+        self.latent_space_dim = latent_space_dim
         self.inner_lr_init = inner_lr_init
         self.finetuning_lr_init = finetuning_lr_init
         self.num_inner_steps = num_inner_steps
@@ -130,9 +133,13 @@ class LEO(MetaTemplate):
         self.kl_coef = kl_coef
         self.orthogonality_penalty_coef = orthogonality_penalty_coef
         self.encoder_penalty_coef = encoder_penalty_coef
+        self.gradient_threshold = gradient_threshold
+        self.gradient_norm_threshold = gradient_norm_threshold
 
         self.dropout = nn.Dropout(p=dropout)
-        self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.feat_dim, dropout=self.dropout)
+        self.encoder = EncodingNetwork(
+            n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.latent_space_dim, dropout=self.dropout,
+        )
 
         self.decoders = nn.ModuleList()
         for layer_idx in range(len(backbone_dims)):
@@ -143,9 +150,13 @@ class LEO(MetaTemplate):
             else:
                 output_dim = backbone_dims[layer_idx] + 3
                 n_outputs = backbone_dims[layer_idx-1]
-            self.decoders.append(DecodingNetwork(latent_dim=self.feat_dim, output_dim=output_dim, n_outputs=n_outputs))
+            self.decoders.append(
+                DecodingNetwork(latent_dim=self.latent_space_dim, output_dim=output_dim, n_outputs=n_outputs)
+            )
         # We add +1 because of the classifier bias vector
-        self.decoders.append(DecodingNetwork(latent_dim=self.feat_dim, output_dim=self.feat_dim+1, n_outputs=n_way))
+        self.decoders.append(
+            DecodingNetwork(latent_dim=self.latent_space_dim, output_dim=self.feat_dim+1, n_outputs=n_way)
+        )
 
         self.inner_lr = nn.Parameter(torch.tensor(inner_lr_init, dtype=torch.float32))
         self.finetuning_lr = nn.Parameter(torch.tensor(finetuning_lr_init, dtype=torch.float32))
@@ -309,6 +320,18 @@ class LEO(MetaTemplate):
             if task_count == self.n_task:  # MAML update several tasks at one time
                 loss_q = torch.stack(loss_all).sum(0)
                 loss_q.backward()
+
+                # Check for NaN values in the gradients
+                for param in [*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr]:
+                    if torch.isnan(param.grad).any():
+                        # Create a mask for NaN values in the gradients
+                        nan_mask = torch.isnan(param.grad)
+                        # Zero out the gradients for parameters associated with NaN values
+                        param.grad[nan_mask] = 0.0
+
+                # clip gradient if necessary
+                nn.utils.clip_grad_value_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_threshold)
+                nn.utils.clip_grad_norm_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_norm_threshold)
 
                 optimizer.step()
                 task_count = 0
