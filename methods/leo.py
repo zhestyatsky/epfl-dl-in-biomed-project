@@ -9,14 +9,14 @@ from methods.meta_template import MetaTemplate
 
 
 class NormalDistribution(nn.Module):
-    def __init__(self, n_way, output_dim):
+    def __init__(self, n_vectors, vector_dim):
         super().__init__()
-        self.n_way = n_way
-        self.output_dim = output_dim
+        self.n_vectors = n_vectors
+        self.vector_dim = vector_dim
         self.std_offset = 1e-10
 
-        self.gaussian_means = torch.zeros(self.n_way, self.output_dim)
-        self.gaussian_stds = torch.ones(self.n_way, self.output_dim)
+        self.gaussian_means = torch.zeros(self.n_vectors, self.vector_dim)
+        self.gaussian_stds = torch.ones(self.n_vectors, self.vector_dim)
 
         if torch.cuda.is_available():
             self.gaussian_means = self.gaussian_means.cuda()
@@ -53,7 +53,7 @@ class EncodingNetwork(nn.Module):
 
         self.encoding_layer = nn.Linear(x_dim, encoder_dim)
         self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim)
-        self.normal_distribution = NormalDistribution(n_way=n_way, output_dim=encoder_dim)
+        self.normal_distribution = NormalDistribution(n_vectors=n_way, vector_dim=encoder_dim)
 
     def forward(self, x_support):
         x_support = self.dropout(x_support)
@@ -80,7 +80,7 @@ class DecodingNetwork(nn.Module):
         self.output_dim = output_dim
 
         self.decoding_layer = nn.Linear(encoder_dim, 2 * output_dim)
-        self.normal_distribution = NormalDistribution(n_way=n_way, output_dim=output_dim)
+        self.normal_distribution = NormalDistribution(n_vectors=n_way, vector_dim=output_dim)
 
     def forward(self, latent_output):
         decoded_output = self.decoding_layer(latent_output)
