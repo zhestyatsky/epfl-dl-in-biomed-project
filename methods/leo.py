@@ -89,8 +89,9 @@ class DecodingNetwork(nn.Module):
 
 
 class LEO(MetaTemplate):
-    def __init__(self, x_dim, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init, inner_update_step, finetuning_update_step, l2_penalty_coef,
-                 kl_coef, orthogonality_penalty_coef, encoder_penalty_coef, dropout):
+    def __init__(self, x_dim, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init, num_inner_steps,
+                 num_finetuning_steps, l2_penalty_coef, kl_coef, orthogonality_penalty_coef, encoder_penalty_coef,
+                 dropout):
         """
             Initialize the LEO (Latent Embedding Optimization) model.
 
@@ -100,8 +101,8 @@ class LEO(MetaTemplate):
                 n_support (int): Number of support examples per class.
                 n_task (int): Number of tasks.
                 inner_lr (float): Inner learning rate for task updates.
-                inner_update_step (int): Number of inner loop adaptation steps.
-                finetuning_update_step (int): Number of inner loop finetuning steps.
+                num_inner_steps (int): Number of inner loop adaptation steps.
+                num_finetuning_steps (int): Number of inner loop finetuning steps.
                 l2_penalty_coef (float): Coefficient for L2 penalty.
                 kl_coef (float): Coefficient for KL divergence penalty.
                 orthogonality_penalty_coef (float): Coefficient for orthogonality penalty.
@@ -122,8 +123,8 @@ class LEO(MetaTemplate):
         self.n_task = n_task
         self.inner_lr_init = inner_lr_init
         self.finetuning_lr_init = finetuning_lr_init
-        self.inner_update_step = inner_update_step
-        self.finetuning_update_step = finetuning_update_step
+        self.num_inner_steps = num_inner_steps
+        self.num_finetuning_steps = num_finetuning_steps
         self.l2_penalty_coef = l2_penalty_coef
         self.kl_coef = kl_coef
         self.orthogonality_penalty_coef = orthogonality_penalty_coef
@@ -135,7 +136,6 @@ class LEO(MetaTemplate):
 
         self.inner_lr = nn.Parameter(torch.tensor(inner_lr_init, dtype=torch.float32))
         self.finetuning_lr = nn.Parameter(torch.tensor(finetuning_lr_init, dtype=torch.float32))
-        
 
     def forward(self, x):
         out = self.feature.forward(x)
@@ -197,7 +197,7 @@ class LEO(MetaTemplate):
         self.update_weights(weights)
 
         ### meta train inner loop ###
-        for i in range(self.inner_update_step):
+        for i in range(self.num_inner_steps):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
@@ -212,7 +212,7 @@ class LEO(MetaTemplate):
         self.encoder_penalty = torch.mean((latents_z_init - latents_z) ** 2)
 
         ### inner finetuning ###
-        for i in range(self.finetuning_update_step):
+        for i in range(self.num_finetuning_steps):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
