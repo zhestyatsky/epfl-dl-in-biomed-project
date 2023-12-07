@@ -47,7 +47,7 @@ class Baseline(MetaTemplate):
 
     def set_forward_loss(self, x, y):
         scores = self.forward(x)
-        print(scores.shape)
+        #print(scores.shape)
         if self.type == 'classification':
             y = y.long().cuda()
         else:
