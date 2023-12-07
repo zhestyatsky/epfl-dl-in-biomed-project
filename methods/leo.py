@@ -133,8 +133,8 @@ class LEO(MetaTemplate):
         self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.feat_dim, dropout=self.dropout)
         self.decoder = DecodingNetwork(n_way=n_way, encoder_dim=self.feat_dim, output_dim=self.feat_dim + 1)
 
-        self.inner_lr = nn.Parameter(torch.tensor(inner_lr_init))
-        self.finetuning_lr = nn.Parameter(torch.tensor(finetuning_lr_init))
+        self.inner_lr = nn.Parameter(torch.tensor(inner_lr_init, dtype=torch.float32))
+        self.finetuning_lr = nn.Parameter(torch.tensor(finetuning_lr_init, dtype=torch.float32))
         
 
     def forward(self, x):
