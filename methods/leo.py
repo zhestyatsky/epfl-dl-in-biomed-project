@@ -166,8 +166,8 @@ class LEO(MetaTemplate):
             identity = identity.cuda()
         return torch.mean((correlation_matrix - identity) ** 2)
 
-    # TODO: Rename and add backbone weights update, i.e. increase the output dimension of decoder w.r.t. so that it
-    #       predicts weights for both classifier and backbone; afterwards use the predicted weights for update.
+    # TODO: Add backbone weights update, i.e. increase the output dimension of decoder so that it predicts weights for
+    #       both: classifier and backbone; afterwards use the predicted outputs for update similarly.
     def update_weights(self, weights):
         clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
         clf_bias = clf_bias.squeeze()
@@ -191,13 +191,13 @@ class LEO(MetaTemplate):
 
         self.zero_grad()
 
-        latents_z, self.kl_div = self.encoder(x_support)
+        latents_z, kl_div = self.encoder(x_support)
         latents_z_init = latents_z.detach()
         weights = self.decoder(latents_z)
         self.update_weights(weights)
 
-        ### meta train inner loop ###
-        for i in range(self.num_inner_steps):
+        # Meta training inner loop
+        for _ in range(self.num_inner_steps):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
@@ -206,13 +206,8 @@ class LEO(MetaTemplate):
             weights = self.decoder(latents_z)
             self.update_weights(weights)
 
-        # Calculate encoder penalty: mean squared difference between initial and current latent representations,
-        # encouraging stability and continuity in the learned latent space.(encourages the encoder to produce latent
-        # representations that are close to their initial values)
-        self.encoder_penalty = torch.mean((latents_z_init - latents_z) ** 2)
-
-        ### inner finetuning ###
-        for i in range(self.num_finetuning_steps):
+        # Meta training fine-tuning loop
+        for _ in range(self.num_finetuning_steps):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
@@ -220,16 +215,18 @@ class LEO(MetaTemplate):
             self.update_weights(weights)
 
         scores = self.forward(x_query)
+        encoder_penalty = torch.mean((latents_z_init - latents_z) ** 2)
 
-        self.orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
-
-        return scores
+        return scores, kl_div, encoder_penalty
 
     def set_forward_adaptation(self, x, is_feature=False):  # overwrite parrent function
         raise ValueError('MAML performs further adapation simply by increasing task_upate_num')
 
     def set_forward_loss(self, x, y=None):
-        scores = self.set_forward(x, y)
+        scores, kl_div, encoder_penalty = self.set_forward(x, y)
+
+        # TODO: Perhaps include bias weights into orthogonality penalty calculation?
+        orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
 
         if y is None:  # Classification task
             y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
@@ -241,9 +238,14 @@ class LEO(MetaTemplate):
 
         loss = self.loss_fn(scores, y_query)
 
-        final_loss = loss + self.kl_coef * self.kl_div + self.encoder_penalty_coef * self.encoder_penalty + self.orthogonality_penalty_coef * self.orthogonality_penalty
+        regularized_loss = (
+                loss +
+                self.kl_coef * kl_div +
+                self.encoder_penalty_coef * encoder_penalty +
+                self.orthogonality_penalty_coef * orthogonality_penalty
+        )
 
-        return final_loss
+        return regularized_loss
 
     def train_loop(self, epoch, train_loader, optimizer):  # overwrite parrent function
         print_freq = 10
