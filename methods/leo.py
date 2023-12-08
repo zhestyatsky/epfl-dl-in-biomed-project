@@ -209,19 +209,19 @@ class LEO(MetaTemplate):
         self.classifier.bias.fast = clf_bias
 
         # Then we set the backbone weights
-        for layer_idx, block_weights in enumerate(backbone_blocks_weights):
-            block_matrix_dims = backbone_matrices_dims[layer_idx]
-            # Each backbone block contains a linear layer with a bias followed by a BatchNorm
-            lin_weight, lin_bias, batch_norm_weight, batch_norm_bias = (
-                block_weights.view(backbone_matrices_dims[layer_idx]).split([block_matrix_dims[0] - 3, 1, 1, 1])
-            )
-            lin_bias = lin_bias.squeeze()
-            batch_norm_weight = batch_norm_weight.squeeze()
-            batch_norm_bias = batch_norm_bias.squeeze()
-            self.feature.encoder[layer_idx][0].weight.fast = lin_weight.T
-            self.feature.encoder[layer_idx][0].bias.fast = lin_bias
-            self.feature.encoder[layer_idx][1].weight.fast = batch_norm_weight
-            self.feature.encoder[layer_idx][1].bias.fast = batch_norm_bias
+        #for layer_idx, block_weights in enumerate(backbone_blocks_weights):
+        #    block_matrix_dims = backbone_matrices_dims[layer_idx]
+        #    # Each backbone block contains a linear layer with a bias followed by a BatchNorm
+        #    lin_weight, lin_bias, batch_norm_weight, batch_norm_bias = (
+        #        block_weights.view(backbone_matrices_dims[layer_idx]).split([block_matrix_dims[0] - 3, 1, 1, 1])
+        #    )
+        #    lin_bias = lin_bias.squeeze()
+        #    batch_norm_weight = batch_norm_weight.squeeze()
+        #    batch_norm_bias = batch_norm_bias.squeeze()
+        #    self.feature.encoder[layer_idx][0].weight.fast = lin_weight.T
+        #    self.feature.encoder[layer_idx][0].bias.fast = lin_bias
+        #    self.feature.encoder[layer_idx][1].weight.fast = batch_norm_weight
+        #    self.feature.encoder[layer_idx][1].bias.fast = batch_norm_bias
 
     def calculate_scores_and_regularization_parameters(self, x, y=None):
         if torch.cuda.is_available():
