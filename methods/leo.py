@@ -293,8 +293,8 @@ class LEO(MetaTemplate):
         regularized_loss = (
                 loss +
                 self.kl_coef * kl_div +
-                self.encoder_penalty_coef * encoder_penalty +
-                self.orthogonality_penalty_coef * orthogonality_penalty
+                self.encoder_penalty_coef * encoder_penalty# +
+                #self.orthogonality_penalty_coef * orthogonality_penalty
         )
 
         return regularized_loss
