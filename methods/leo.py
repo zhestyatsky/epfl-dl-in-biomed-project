@@ -264,7 +264,7 @@ class LEO(MetaTemplate):
             grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
             weights = weights - self.finetuning_lr * grad
             self.set_weights(weights)
-            print(f"inner loop iter {i} grad weights", grad)
+            print(f"fine-tuning loop iter {i} grad weights", grad)
             print(f"fine-tuning loop iter {i} weights", weights)
 
         scores = self.forward(x_query)
