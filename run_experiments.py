@@ -1,6 +1,7 @@
 import os
 from itertools import product
 
+
 # grid search configurations
 hyperparameters = {
     'dataset': ['swissprot', 'tabula_muris'],
