@@ -252,7 +252,7 @@ class LEO(MetaTemplate):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
-            latents_z = latents_z - self.inner_lr * grad.detach()
+            latents_z = latents_z - self.inner_lr * grad
             weights = self.decoder(latents_z)
             self.set_weights(weights)
 
@@ -261,7 +261,7 @@ class LEO(MetaTemplate):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
-            weights = weights - self.finetuning_lr * grad.detach()
+            weights = weights - self.finetuning_lr * grad
             self.set_weights(weights)
 
         scores = self.forward(x_query)
