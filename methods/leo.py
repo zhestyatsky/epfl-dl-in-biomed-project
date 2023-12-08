@@ -258,6 +258,16 @@ class LEO(MetaTemplate):
             weights = self.decoder(latents_z)
             print(f"inner loop iter {i} weights", weights)
             self.set_weights(weights)
+            print("inner loop encoder first layer lin weights", self.feature.encoder[0][0].weight.fast)
+            print("inner loop encoder first layer lin bias", self.feature.encoder[0][0].bias.fast)
+            print("inner loop encoder first layer batch norm weights", self.feature.encoder[0][1].weight.fast)
+            print("inner loop encoder first layer batch norm bias", self.feature.encoder[0][1].bias.fast)
+            print("inner loop encoder second layer lin weights", self.feature.encoder[1][0].weight.fast)
+            print("inner loop encoder second layer lin bias", self.feature.encoder[1][0].bias.fast)
+            print("inner loop encoder second layer batch norm weights", self.feature.encoder[1][1].weight.fast)
+            print("inner loop encoder second layer batch norm bias", self.feature.encoder[1][1].bias.fast)
+            print("inner loop clf lin weights", self.classifier.weight.fast)
+            print("inner loop clf lin bias", self.classifier.bias.fast)
 
         # Meta training fine-tuning loop
         for i in range(self.num_finetuning_steps):
