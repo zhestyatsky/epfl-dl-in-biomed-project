@@ -254,18 +254,6 @@ class LEO(MetaTemplate):
             weights = self.decoder(latents_z)
             self.set_weights(weights)
             print(f"inner loop iter {i} weights", weights)
-            print(f"inner loop iter {i} scores", scores)
-            print(f"inner loop iter {i} kl_div", kl_div)
-            print(f"inner loop iter {i} encoder first layer lin weights", self.feature.encoder[0][0].weight.fast)
-            print(f"inner loop iter {i} encoder first layer lin bias", self.feature.encoder[0][0].bias.fast)
-            print(f"inner loop iter {i} encoder first layer batch norm weights", self.feature.encoder[0][1].weight.fast)
-            print(f"inner loop iter {i} encoder first layer batch norm bias", self.feature.encoder[0][1].bias.fast)
-            print(f"inner loop iter {i} encoder second layer lin weights", self.feature.encoder[1][0].weight.fast)
-            print(f"inner loop iter {i} encoder second layer lin bias", self.feature.encoder[1][0].bias.fast)
-            print(f"inner loop iter {i} encoder second layer batch norm weights", self.feature.encoder[1][1].weight.fast)
-            print(f"inner loop iter {i} encoder second layer batch norm bias", self.feature.encoder[1][1].bias.fast)
-            print(f"inner loop iter {i} clf lin weights", self.classifier.weight.fast)
-            print(f"inner loop iter {i} clf lin bias", self.classifier.bias.fast)
 
         # Meta training fine-tuning loop
         for i in range(self.num_finetuning_steps):
@@ -275,18 +263,6 @@ class LEO(MetaTemplate):
             weights = weights - self.finetuning_lr * grad
             self.set_weights(weights)
             print(f"fine-tuning loop iter {i} weights", weights)
-            print(f"fine-tuning loop iter {i} scores", scores)
-            print(f"fine-tuning loop iter {i} kl_div", kl_div)
-            print(f"fine-tuning loop iter {i} encoder first layer lin weights", self.feature.encoder[0][0].weight.fast)
-            print(f"fine-tuning loop iter {i} encoder first layer lin bias", self.feature.encoder[0][0].bias.fast)
-            print(f"fine-tuning loop iter {i} encoder first layer batch norm weights", self.feature.encoder[0][1].weight.fast)
-            print(f"fine-tuning loop iter {i} encoder first layer batch norm bias", self.feature.encoder[0][1].bias.fast)
-            print(f"fine-tuning loop iter {i} encoder second layer lin weights", self.feature.encoder[1][0].weight.fast)
-            print(f"fine-tuning loop iter {i} encoder second layer lin bias", self.feature.encoder[1][0].bias.fast)
-            print(f"fine-tuning loop iter {i} encoder second layer batch norm weights", self.feature.encoder[1][1].weight.fast)
-            print(f"fine-tuning loop iter {i} encoder second layer batch norm bias", self.feature.encoder[1][1].bias.fast)
-            print(f"fine-tuning loop iter {i} clf lin weights", self.classifier.weight.fast)
-            print(f"fine-tuning loop iter {i} clf lin bias", self.classifier.bias.fast)
 
         scores = self.forward(x_query)
         encoder_penalty = torch.mean((latents_z_init - latents_z) ** 2)
@@ -319,16 +295,6 @@ class LEO(MetaTemplate):
         print("scores", scores)
         print("kl_div", kl_div)
         print("encoder_penalty", encoder_penalty)
-        print("loss encoder first layer lin weights", self.feature.encoder[0][0].weight.fast)
-        print("loss encoder first layer lin bias", self.feature.encoder[0][0].bias.fast)
-        print("loss encoder first layer batch norm weights", self.feature.encoder[0][1].weight.fast)
-        print("loss encoder first layer batch norm bias", self.feature.encoder[0][1].bias.fast)
-        print("loss encoder second layer lin weights", self.feature.encoder[1][0].weight.fast)
-        print("loss encoder second layer lin bias", self.feature.encoder[1][0].bias.fast)
-        print("loss encoder second layer batch norm weights", self.feature.encoder[1][1].weight.fast)
-        print("loss encoder second layer batch norm bias", self.feature.encoder[1][1].bias.fast)
-        print("loss clf lin weights", self.classifier.weight.fast)
-        print("loss clf lin bias", self.classifier.bias.fast)
         regularized_loss = (
                 loss +
                 self.kl_coef * kl_div +
