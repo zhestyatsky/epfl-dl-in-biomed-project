@@ -21,7 +21,7 @@ configurations = [dict(zip(hyperparameters.keys(), values)) for values in produc
 
 for config in configurations:
     # Update exp.name according to other options
-    exp_name = '_'.join([f"{key.split('.')[1]}_{value}" for key, value in config.items()])
+    exp_name = '_'.join([f"{key.split('.')[-1]}_{value}" for key, value in config.items()])
     command = f"python {run_script_path} exp.name={exp_name} method=leo {' '.join([f'{key}={value}' for key, value in config.items()])}"
 
     # Create the output file name based on the configuration
