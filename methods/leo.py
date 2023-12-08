@@ -67,6 +67,8 @@ class EncodingNetwork(nn.Module):
         relation_net_per_class_output = relation_net_output.view(self.n_way, self.n_support, -1).mean(dim=1)
 
         means, std_logs = relation_net_per_class_output.chunk(chunks=2, dim=-1)
+        means = means.view(self.n_way * self.encoder_dim)
+        std_logs = std_logs.view(self.n_way * self.encoder_dim)
         output, kl_div = self.normal_distribution(means, std_logs)
         output = output.view(self.n_way, self.encoder_dim)
         return output, kl_div
