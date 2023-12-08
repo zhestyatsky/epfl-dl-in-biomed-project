@@ -249,7 +249,7 @@ class LEO(MetaTemplate):
         self.set_weights(weights)
 
         # Meta training inner loop
-        for i in range(self.num_inner_steps):
+        for _ in range(self.num_inner_steps):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
@@ -258,7 +258,7 @@ class LEO(MetaTemplate):
             self.set_weights(weights)
 
         # Meta training fine-tuning loop
-        for i in range(self.num_finetuning_steps):
+        for _ in range(self.num_finetuning_steps):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
