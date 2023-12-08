@@ -92,9 +92,8 @@ class DecodingNetwork(nn.Module):
 
 class LEO(MetaTemplate):
     def __init__(self, x_dim, backbone_dims, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init,
-                 num_inner_steps, num_finetuning_steps, kl_coef, orthogonality_penalty_coef, 
-                 encoder_penalty_coef, dropout, gradient_threshold, gradient_norm_threshold, latent_space_dim,
-                 optimize_backbone):
+                 num_adaptation_steps, kl_coef, orthogonality_penalty_coef, encoder_penalty_coef, dropout,
+                 gradient_threshold, gradient_norm_threshold, latent_space_dim, optimize_backbone):
         """
             Initialize the LEO (Latent Embedding Optimization) model.
 
@@ -107,8 +106,7 @@ class LEO(MetaTemplate):
                 n_task (int): Number of tasks.
                 inner_lr_init (float): Initial inner loop learning rate.
                 finetuning_lr_init (float): Initial finetuning loop learning rate.
-                num_inner_steps (int): Number of inner loop adaptation steps.
-                num_finetuning_steps (int): Number of inner loop finetuning steps.
+                num_adaptation_steps (int): Number of inner and fine-tuning loops adaptation steps.
                 kl_coef (float): Coefficient for KL divergence penalty.
                 orthogonality_penalty_coef (float): Coefficient for orthogonality penalty.
                 encoder_penalty_coef (float): Coefficient for encoder penalty.
@@ -134,8 +132,7 @@ class LEO(MetaTemplate):
         self.latent_space_dim = latent_space_dim
         self.inner_lr_init = inner_lr_init
         self.finetuning_lr_init = finetuning_lr_init
-        self.num_inner_steps = num_inner_steps
-        self.num_finetuning_steps = num_finetuning_steps
+        self.num_adaptation_steps = num_adaptation_steps
         self.kl_coef = kl_coef
         self.orthogonality_penalty_coef = orthogonality_penalty_coef
         self.encoder_penalty_coef = encoder_penalty_coef
@@ -249,7 +246,7 @@ class LEO(MetaTemplate):
         self.set_weights(weights)
 
         # Meta training inner loop
-        for _ in range(self.num_inner_steps):
+        for _ in range(self.num_adaptation_steps):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
@@ -258,7 +255,7 @@ class LEO(MetaTemplate):
             self.set_weights(weights)
 
         # Meta training fine-tuning loop
-        for _ in range(self.num_finetuning_steps):
+        for _ in range(self.num_adaptation_steps):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
