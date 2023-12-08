@@ -345,8 +345,8 @@ class LEO(MetaTemplate):
                 loss_all = []
             optimizer.zero_grad()
             if i % print_freq == 0:
-                print('Epoch {:d} | Batch {:d}/{:d} | Loss {:f} | InnerLR {:f} | FineTuningLR {:f}'.format(epoch, i, len(train_loader),
-                                                                        avg_loss / float(i + 1), self.inner_lr.item(), self.finetuning_lr.item()))
+                print('Epoch {:d} | Batch {:d}/{:d} | Loss {:f}'.format(epoch, i, len(train_loader), avg_loss / float(i + 1)))
+                print('InnerLR {:f} | FineTuningLR {:f}'.format(self.inner_lr.item(), self.finetuning_lr.item()))
                 wandb.log({'loss/train': avg_loss / float(i + 1)})
 
     def test_loop(self, test_loader, return_std=False):  # overwrite parrent function
