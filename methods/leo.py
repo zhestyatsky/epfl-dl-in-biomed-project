@@ -23,7 +23,7 @@ class NormalDistribution(nn.Module):
 
     def forward(self, means, std_logs):
         stds = torch.exp(std_logs)
-        stds -= (1 - self.std_offset)
+        stds = stds - (1. - self.std_offset)
         stds = torch.maximum(stds, torch.tensor(self.std_offset))
         gaussian_vector = torch.normal(self.gaussian_means, self.gaussian_stds)
 
