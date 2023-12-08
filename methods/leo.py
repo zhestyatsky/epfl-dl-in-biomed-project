@@ -9,26 +9,26 @@ from methods.meta_template import MetaTemplate
 
 
 class NormalDistribution(nn.Module):
-    def __init__(self, n_way, output_dim):
+    def __init__(self, output_dim):
         super().__init__()
-        self.n_way = n_way
         self.output_dim = output_dim
         self.std_offset = 1e-10
 
-        self.gaussian_means = torch.zeros(self.n_way, self.output_dim)
-        self.gaussian_stds = torch.ones(self.n_way, self.output_dim)
+        self.gaussian_means = torch.zeros(self.output_dim)
+        self.gaussian_stds = torch.ones(self.output_dim)
 
         if torch.cuda.is_available():
             self.gaussian_means = self.gaussian_means.cuda()
             self.gaussian_stds = self.gaussian_stds.cuda()
 
     def forward(self, means, stds):
-        gaussian_vectors = torch.normal(self.gaussian_means, self.gaussian_stds)
+        stds = torch.abs(stds)
+        gaussian_vector = torch.normal(self.gaussian_means, self.gaussian_stds)
 
         if torch.cuda.is_available():
-            gaussian_vectors = gaussian_vectors.cuda()
+            gaussian_vector = gaussian_vector.cuda()
 
-        output = gaussian_vectors * stds + means
+        output = gaussian_vector * stds + means
         kl = self.kl_divergence(output, means, stds)
         return output, kl
 
@@ -53,7 +53,7 @@ class EncodingNetwork(nn.Module):
 
         self.encoding_layer = nn.Linear(x_dim, encoder_dim)
         self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim)
-        self.normal_distribution = NormalDistribution(n_way=n_way, output_dim=encoder_dim)
+        self.normal_distribution = NormalDistribution(output_dim=self.n_way*self.encoder_dim)
 
     def forward(self, x_support):
         x_support = self.dropout(x_support)
@@ -67,38 +67,40 @@ class EncodingNetwork(nn.Module):
         relation_net_per_class_output = relation_net_output.view(self.n_way, self.n_support, -1).mean(dim=1)
 
         means, stds = relation_net_per_class_output.chunk(chunks=2, dim=-1)
-        stds = torch.exp(stds)
+        means = means.contiguous().view(self.n_way * self.encoder_dim)
+        stds = stds.contiguous().view(self.n_way * self.encoder_dim)
         output, kl_div = self.normal_distribution(means, stds)
+        output = output.view(self.n_way, self.encoder_dim)
         return output, kl_div
 
 
 class DecodingNetwork(nn.Module):
-    def __init__(self, n_way, encoder_dim, output_dim):
+    def __init__(self, n_way, latent_dim, output_dim):
         super().__init__()
         self.n_way = n_way
-        self.encoder_dim = encoder_dim
-        self.output_dim = output_dim
-
-        self.decoding_layer = nn.Linear(encoder_dim, 2 * output_dim)
-        self.normal_distribution = NormalDistribution(n_way=n_way, output_dim=output_dim)
+        self.latent_dim = latent_dim
+        self.decoding_layer = nn.Linear(self.n_way*self.latent_dim, 2 * output_dim)
+        self.normal_distribution = NormalDistribution(output_dim=output_dim)
 
     def forward(self, latent_output):
+        latent_output = latent_output.view(self.n_way*self.latent_dim)
         decoded_output = self.decoding_layer(latent_output)
         means, stds = decoded_output.chunk(chunks=2, dim=-1)
-        stds = torch.exp(stds)
         output, _ = self.normal_distribution(means, stds)
         return output
 
 
 class LEO(MetaTemplate):
-    def __init__(self, x_dim, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init, 
+    def __init__(self, x_dim, backbone_dims, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init,
                  num_inner_steps, num_finetuning_steps, kl_coef, orthogonality_penalty_coef, 
-                 encoder_penalty_coef, dropout, gradient_threshold, gradient_norm_threshold, latent_space_dim):
+                 encoder_penalty_coef, dropout, gradient_threshold, gradient_norm_threshold, latent_space_dim,
+                 optimize_backbone):
         """
             Initialize the LEO (Latent Embedding Optimization) model.
 
             Args:
                 x_dim (int): Input data dimension.
+                backbone_dims (List[int]): Backbone layer dimensions.
                 backbone (object): The backbone of the model.
                 n_way (int): Number of classes in each task.
                 n_support (int): Number of support examples per class.
@@ -111,6 +113,7 @@ class LEO(MetaTemplate):
                 orthogonality_penalty_coef (float): Coefficient for orthogonality penalty.
                 encoder_penalty_coef (float): Coefficient for encoder penalty.
                 dropout (float): Dropout probability.
+                optimize_backbone (bool): If True then both classifier and backbone weights are optimized.
         """
         super(LEO, self).__init__(backbone, n_way, n_support, change_way=False)
 
@@ -124,6 +127,7 @@ class LEO(MetaTemplate):
             self.type = "classification"
             self.loss_fn = nn.CrossEntropyLoss()
 
+        self.backbone_dims = backbone_dims
         self.n_task = n_task
 
         # LEO specific hyperparameters
@@ -137,10 +141,28 @@ class LEO(MetaTemplate):
         self.encoder_penalty_coef = encoder_penalty_coef
         self.gradient_threshold = gradient_threshold
         self.gradient_norm_threshold = gradient_norm_threshold
+        self.optimize_backbone = optimize_backbone
 
         self.dropout = nn.Dropout(p=dropout)
-        self.encoder = EncodingNetwork(n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.latent_space_dim, dropout=self.dropout)
-        self.decoder = DecodingNetwork(n_way=n_way, encoder_dim=self.latent_space_dim, output_dim=self.feat_dim + 1)
+        self.encoder = EncodingNetwork(
+            n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.latent_space_dim, dropout=self.dropout,
+        )
+
+        # We add +1 because of the classifier bias vector
+        self.weights_matrices_dims = [(self.feat_dim + 1,  n_way)]
+        if self.optimize_backbone:
+            for layer_idx in range(len(backbone_dims)):
+                # We add +3 because each backbone block has bias vector in the Linear layer and 2 vectors in the BatchNorm
+                if layer_idx == 0:
+                    self.weights_matrices_dims.append((x_dim + 3, backbone_dims[layer_idx]))
+                else:
+                    self.weights_matrices_dims.append((backbone_dims[layer_idx-1] + 3, backbone_dims[layer_idx]))
+
+        self.decoder = DecodingNetwork(
+            n_way=self.n_way,
+            latent_dim=self.latent_space_dim,
+            output_dim=sum(dims[0] * dims[1] for dims in self.weights_matrices_dims),
+        )
 
         self.inner_lr = nn.Parameter(torch.tensor(inner_lr_init, dtype=torch.float32))
         self.finetuning_lr = nn.Parameter(torch.tensor(finetuning_lr_init, dtype=torch.float32))
@@ -174,13 +196,35 @@ class LEO(MetaTemplate):
             identity = identity.cuda()
         return torch.mean((correlation_matrix - identity) ** 2)
 
-    # TODO: Add backbone weights update, i.e. increase the output dimension of decoder so that it predicts weights for
-    #       both: classifier and backbone; afterwards use the predicted outputs for update similarly.
-    def update_weights(self, weights):
-        clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
+    def set_weights(self, weights):
+        weights_vectors_dims = [dim[0] * dim[1] for dim in self.weights_matrices_dims]
+        weights_components = weights.split(weights_vectors_dims)
+
+        # First we set the classifier weights
+        clf_weights = weights_components[0]
+        clf_matrix_dims = self.weights_matrices_dims[0]
+        clf_weight, clf_bias = clf_weights.view(clf_matrix_dims).split([clf_matrix_dims[0] - 1, 1])
         clf_bias = clf_bias.squeeze()
-        self.classifier.weight.fast = clf_weight
+        self.classifier.weight.fast = clf_weight.T
         self.classifier.bias.fast = clf_bias
+
+        if self.optimize_backbone:
+            backbone_blocks_weights = weights_components[1:]
+            backbone_matrices_dims = self.weights_matrices_dims[1:]
+            # Then we set the backbone weights
+            for layer_idx, block_weights in enumerate(backbone_blocks_weights):
+                block_matrix_dims = backbone_matrices_dims[layer_idx]
+                # Each backbone block contains a linear layer with a bias followed by a BatchNorm
+                lin_weight, lin_bias, batch_norm_weight, batch_norm_bias = (
+                    block_weights.view(backbone_matrices_dims[layer_idx]).split([block_matrix_dims[0] - 3, 1, 1, 1])
+                )
+                lin_bias = lin_bias.squeeze()
+                batch_norm_weight = batch_norm_weight.squeeze()
+                batch_norm_bias = batch_norm_bias.squeeze()
+                self.feature.encoder[layer_idx][0].weight.fast = lin_weight.T
+                self.feature.encoder[layer_idx][0].bias.fast = lin_bias
+                self.feature.encoder[layer_idx][1].weight.fast = batch_norm_weight
+                self.feature.encoder[layer_idx][1].bias.fast = batch_norm_bias
 
     def calculate_scores_and_regularization_parameters(self, x, y=None):
         if torch.cuda.is_available():
@@ -202,7 +246,7 @@ class LEO(MetaTemplate):
         latents_z, kl_div = self.encoder(x_support)
         latents_z_init = latents_z.detach()
         weights = self.decoder(latents_z)
-        self.update_weights(weights)
+        self.set_weights(weights)
 
         # Meta training inner loop
         for _ in range(self.num_inner_steps):
@@ -210,9 +254,8 @@ class LEO(MetaTemplate):
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
             latents_z = latents_z - self.inner_lr * grad
-
             weights = self.decoder(latents_z)
-            self.update_weights(weights)
+            self.set_weights(weights)
 
         # Meta training fine-tuning loop
         for _ in range(self.num_finetuning_steps):
@@ -220,7 +263,7 @@ class LEO(MetaTemplate):
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
             weights = weights - self.finetuning_lr * grad
-            self.update_weights(weights)
+            self.set_weights(weights)
 
         scores = self.forward(x_query)
         encoder_penalty = torch.mean((latents_z_init - latents_z) ** 2)
@@ -237,8 +280,6 @@ class LEO(MetaTemplate):
     def set_forward_loss(self, x, y=None):
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
 
-        # TODO: Perhaps include bias weights into orthogonality penalty calculation?
-        orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
 
         if y is None:  # Classification task
             y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
@@ -249,13 +290,12 @@ class LEO(MetaTemplate):
             y_query = y_query.cuda()
 
         loss = self.loss_fn(scores, y_query)
+        regularized_loss = loss + self.kl_coef * kl_div + self.encoder_penalty_coef * encoder_penalty
 
-        regularized_loss = (
-                loss +
-                self.kl_coef * kl_div +
-                self.encoder_penalty_coef * encoder_penalty +
-                self.orthogonality_penalty_coef * orthogonality_penalty
-        )
+        if not self.optimize_backbone:
+            # TODO: Perhaps include decoder bias
+            orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
+            regularized_loss = regularized_loss + self.orthogonality_penalty_coef * orthogonality_penalty
 
         return regularized_loss
 

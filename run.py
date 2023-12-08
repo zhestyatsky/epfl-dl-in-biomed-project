@@ -35,7 +35,7 @@ def initialize_dataset_model(cfg):
 
     # Instantiate few-shot method class
     if cfg.method.name == "leo":
-        model = instantiate(cfg.method.cls, x_dim=train_dataset.dim, backbone=backbone)
+        model = instantiate(cfg.method.cls, x_dim=train_dataset.dim, backbone_dims=cfg.backbone.layer_dim, backbone=backbone)
     else:
         model = instantiate(cfg.method.cls, backbone=backbone)
 
