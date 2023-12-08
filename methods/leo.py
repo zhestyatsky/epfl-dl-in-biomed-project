@@ -22,7 +22,7 @@ class NormalDistribution(nn.Module):
             self.gaussian_stds = self.gaussian_stds.cuda()
 
     def forward(self, means, std_logs):
-        stds = torch.exp(std_logs)
+        stds = torch.abs(std_logs)
         gaussian_vector = torch.normal(self.gaussian_means, self.gaussian_stds)
 
         if torch.cuda.is_available():
