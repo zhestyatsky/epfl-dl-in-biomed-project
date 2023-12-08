@@ -3,8 +3,12 @@ from itertools import product
 
 # grid search configurations
 hyperparameters = {
-    'dataset': ['swissprot', 'tabula_muris'],
+    'dataset': ['tabula_muris'],
     'n_shot': [1, 5],
+    'lr': [1e-3, 3e-4, 1e-4],
+    'method.latent_space_dim': [8, 16, 32],
+    'method.weight_decay': [1e-6, 1e-8],
+    'method.num_adaptation_steps': [5, 10],
     # Add more hyperparameters as needed
 }
 
