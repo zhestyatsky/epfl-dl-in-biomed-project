@@ -293,7 +293,16 @@ class LEO(MetaTemplate):
         print("scores", scores)
         print("kl_div", kl_div)
         print("encoder_penalty", encoder_penalty)
-        print("encoder fist layer weights", self.feature.encoder[0][0].weight)
+        print("encoder first layer lin weights", self.feature.encoder[0][0].weight.fast)
+        print("encoder first layer lin bias", self.feature.encoder[0][0].bias.fast)
+        print("encoder first layer batch norm weights", self.feature.encoder[0][1].weight.fast)
+        print("encoder first layer batch norm bias", self.feature.encoder[0][1].bias.fast)
+        print("encoder second layer lin weights", self.feature.encoder[1][0].weight.fast)
+        print("encoder second layer lin bias", self.feature.encoder[1][0].bias.fast)
+        print("encoder second layer batch norm weights", self.feature.encoder[1][1].weight.fast)
+        print("encoder second layer batch norm bias", self.feature.encoder[1][1].bias.fast)
+        print("clf lin weights", self.classifier.weight.fast)
+        print("clf lin bias", self.classifier.bias.fast)
         regularized_loss = (
                 loss +
                 self.kl_coef * kl_div +
