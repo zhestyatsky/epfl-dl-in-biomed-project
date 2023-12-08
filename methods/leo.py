@@ -248,24 +248,28 @@ class LEO(MetaTemplate):
         # Meta training inner loop
         for i in range(self.num_inner_steps):
             scores = self.forward(x_support)
+            print(f"inner loop iter {i} scores", scores)
             set_loss = self.loss_fn(scores, y_support)
+            print(f"inner loop iter {i} set_loss", set_loss)
             grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
-            latents_z = latents_z - self.inner_lr * grad
-            weights = self.decoder(latents_z)
-            self.set_weights(weights)
             print(f"inner loop iter {i} grad latents", grad)
+            latents_z = latents_z - self.inner_lr * grad
             print(f"inner loop iter {i} latents_z", latents_z)
+            weights = self.decoder(latents_z)
             print(f"inner loop iter {i} weights", weights)
+            self.set_weights(weights)
 
         # Meta training fine-tuning loop
         for i in range(self.num_finetuning_steps):
             scores = self.forward(x_support)
+            print(f"inner loop iter {i} scores", scores)
             set_loss = self.loss_fn(scores, y_support)
+            print(f"inner loop iter {i} set_loss", set_loss)
             grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
-            weights = weights - self.finetuning_lr * grad
-            self.set_weights(weights)
             print(f"fine-tuning loop iter {i} grad weights", grad)
+            weights = weights - self.finetuning_lr * grad
             print(f"fine-tuning loop iter {i} weights", weights)
+            self.set_weights(weights)
 
         scores = self.forward(x_query)
         encoder_penalty = torch.mean((latents_z_init - latents_z) ** 2)
