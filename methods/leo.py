@@ -9,26 +9,25 @@ from methods.meta_template import MetaTemplate
 
 
 class NormalDistribution(nn.Module):
-    def __init__(self, n_vectors, vector_dim):
+    def __init__(self, output_dim):
         super().__init__()
-        self.n_vectors = n_vectors
-        self.vector_dim = vector_dim
+        self.output_dim = output_dim
         self.std_offset = 1e-10
 
-        self.gaussian_means = torch.zeros(self.n_vectors, self.vector_dim)
-        self.gaussian_stds = torch.ones(self.n_vectors, self.vector_dim)
+        self.gaussian_means = torch.zeros(self.output_dim)
+        self.gaussian_stds = torch.ones(self.output_dim)
 
         if torch.cuda.is_available():
             self.gaussian_means = self.gaussian_means.cuda()
             self.gaussian_stds = self.gaussian_stds.cuda()
 
     def forward(self, means, stds):
-        gaussian_vectors = torch.normal(self.gaussian_means, self.gaussian_stds)
+        gaussian_vector = torch.normal(self.gaussian_means, self.gaussian_stds)
 
         if torch.cuda.is_available():
-            gaussian_vectors = gaussian_vectors.cuda()
+            gaussian_vector = gaussian_vector.cuda()
 
-        output = gaussian_vectors * stds + means
+        output = gaussian_vector * stds + means
         kl = self.kl_divergence(output, means, stds)
         return output, kl
 
@@ -53,7 +52,7 @@ class EncodingNetwork(nn.Module):
 
         self.encoding_layer = nn.Linear(x_dim, encoder_dim)
         self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim)
-        self.normal_distribution = NormalDistribution(n_vectors=n_way, vector_dim=encoder_dim)
+        self.normal_distribution = NormalDistribution(output_dim=self.n_way*self.encoder_dim)
 
     def forward(self, x_support):
         x_support = self.dropout(x_support)
@@ -69,14 +68,15 @@ class EncodingNetwork(nn.Module):
         means, stds = relation_net_per_class_output.chunk(chunks=2, dim=-1)
         stds = torch.exp(stds)
         output, kl_div = self.normal_distribution(means, stds)
+        output = output.view(self.n_way, self.encoder_dim)
         return output, kl_div
 
 
 class DecodingNetwork(nn.Module):
-    def __init__(self, latent_dim, output_dim, n_outputs):
+    def __init__(self, n_way, latent_dim, output_dim):
         super().__init__()
-        self.decoding_layer = nn.Linear(latent_dim, 2 * output_dim)
-        self.normal_distribution = NormalDistribution(n_vectors=n_outputs, vector_dim=output_dim)
+        self.decoding_layer = nn.Linear(n_way * latent_dim, 2 * output_dim)
+        self.normal_distribution = NormalDistribution(output_dim=output_dim)
 
     def forward(self, latent_output):
         decoded_output = self.decoding_layer(latent_output)
