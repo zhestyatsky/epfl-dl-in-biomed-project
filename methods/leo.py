@@ -289,7 +289,10 @@ class LEO(MetaTemplate):
             y_query = y_query.cuda()
 
         loss = self.loss_fn(scores, y_query)
-
+        print("loss", loss)
+        print("scores", scores)
+        print("kl_div", kl_div)
+        print("encoder_penalty", encoder_penalty)
         regularized_loss = (
                 loss +
                 self.kl_coef * kl_div +
