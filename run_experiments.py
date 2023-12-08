@@ -1,14 +1,13 @@
 import os
+from itertools import product
 
 
 # grid search configurations
-configurations = [
-    {'dataset': 'swissprot', 'n_shot': 5},
-    {'dataset': 'swissprot', 'n_shot': 1},
-    {'dataset': 'tabula_muris', 'n_shot': 5},
-    {'dataset': 'tabula_muris', 'n_shot': 1},
-    # configurations will be here
-]
+hyperparameters = {
+    'dataset': ['swissprot', 'tabula_muris'],
+    'n_shot': [1, 5],
+    # Add more hyperparameters as needed
+}
 
 # Path to the run.py script (right now it should be in the same directory as this file)
 run_script_path = './run.py'
@@ -18,6 +17,8 @@ output_dir = 'output/'
 
 # Create the output directory if it doesn't exist
 os.makedirs(output_dir, exist_ok=True)
+
+configurations = [dict(zip(hyperparameters.keys(), values)) for values in product(*hyperparameters.values())]
 
 for config in configurations:
     # Update exp.name according to other options
