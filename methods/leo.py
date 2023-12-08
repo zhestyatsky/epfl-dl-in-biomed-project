@@ -22,7 +22,9 @@ class NormalDistribution(nn.Module):
             self.gaussian_stds = self.gaussian_stds.cuda()
 
     def forward(self, means, std_logs):
-        stds = torch.abs(std_logs)
+        stds = torch.exp(std_logs)
+        stds -= (1 - self.std_offset)
+        stds = torch.maximum(stds, torch.tensor(self.std_offset))
         gaussian_vector = torch.normal(self.gaussian_means, self.gaussian_stds)
 
         if torch.cuda.is_available():
