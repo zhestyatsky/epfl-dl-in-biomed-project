@@ -222,7 +222,7 @@ class LEO(MetaTemplate):
             print("usual", self.feature.encoder[layer_idx][0].bias.shape)
             print("usual", self.feature.encoder[layer_idx][1].weight.shape)
             print("usual", self.feature.encoder[layer_idx][1].bias.shape)
-            self.feature.encoder[layer_idx][0].weight.fast = lin_weight
+            self.feature.encoder[layer_idx][0].weight.fast = lin_weight.T
             self.feature.encoder[layer_idx][0].bias.fast = lin_bias
             self.feature.encoder[layer_idx][1].weight.fast = batch_norm_weight
             self.feature.encoder[layer_idx][1].bias.fast = batch_norm_bias
