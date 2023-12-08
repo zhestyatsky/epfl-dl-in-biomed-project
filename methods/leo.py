@@ -293,6 +293,7 @@ class LEO(MetaTemplate):
         print("scores", scores)
         print("kl_div", kl_div)
         print("encoder_penalty", encoder_penalty)
+        print("encoder fist layer weights", self.feature.encoder[0][0].weight)
         regularized_loss = (
                 loss +
                 self.kl_coef * kl_div +
