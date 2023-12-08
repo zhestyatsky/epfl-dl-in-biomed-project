@@ -278,7 +278,7 @@ class LEO(MetaTemplate):
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
 
         # TODO: Perhaps include decoder bias
-        orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
+        #orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
 
         if y is None:  # Classification task
             y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
