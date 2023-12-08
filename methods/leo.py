@@ -253,6 +253,7 @@ class LEO(MetaTemplate):
             latents_z = latents_z - self.inner_lr * grad
             weights = self.decoder(latents_z)
             self.set_weights(weights)
+            print(f"inner loop iter {i} latents_z", latents_z)
             print(f"inner loop iter {i} weights", weights)
 
         # Meta training fine-tuning loop
