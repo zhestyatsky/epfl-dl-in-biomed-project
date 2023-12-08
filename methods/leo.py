@@ -261,7 +261,7 @@ class LEO(MetaTemplate):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
-            weights = weights - self.finetuning_lr * grad
+            weights = weights - self.finetuning_lr * grad.detach()
             self.set_weights(weights)
 
         scores = self.forward(x_query)
