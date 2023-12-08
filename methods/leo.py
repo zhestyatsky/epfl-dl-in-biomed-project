@@ -93,7 +93,8 @@ class DecodingNetwork(nn.Module):
 class LEO(MetaTemplate):
     def __init__(self, x_dim, backbone_dims, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init,
                  num_inner_steps, num_finetuning_steps, kl_coef, orthogonality_penalty_coef, 
-                 encoder_penalty_coef, dropout, gradient_threshold, gradient_norm_threshold, latent_space_dim):
+                 encoder_penalty_coef, dropout, gradient_threshold, gradient_norm_threshold, latent_space_dim,
+                 optimize_backbone):
         """
             Initialize the LEO (Latent Embedding Optimization) model.
 
@@ -112,6 +113,7 @@ class LEO(MetaTemplate):
                 orthogonality_penalty_coef (float): Coefficient for orthogonality penalty.
                 encoder_penalty_coef (float): Coefficient for encoder penalty.
                 dropout (float): Dropout probability.
+                optimize_backbone (bool): If True then both classifier and backbone weights are optimized.
         """
         super(LEO, self).__init__(backbone, n_way, n_support, change_way=False)
 
@@ -139,6 +141,7 @@ class LEO(MetaTemplate):
         self.encoder_penalty_coef = encoder_penalty_coef
         self.gradient_threshold = gradient_threshold
         self.gradient_norm_threshold = gradient_norm_threshold
+        self.optimize_backbone = optimize_backbone
 
         self.dropout = nn.Dropout(p=dropout)
         self.encoder = EncodingNetwork(
@@ -147,12 +150,13 @@ class LEO(MetaTemplate):
 
         # We add +1 because of the classifier bias vector
         self.weights_matrices_dims = [(self.feat_dim + 1,  n_way)]
-        for layer_idx in range(len(backbone_dims)):
-            # We add +3 because each backbone block has bias vector in the Linear layer and 2 vectors in the BatchNorm
-            if layer_idx == 0:
-                self.weights_matrices_dims.append((x_dim + 3, backbone_dims[layer_idx]))
-            else:
-                self.weights_matrices_dims.append((backbone_dims[layer_idx-1] + 3, backbone_dims[layer_idx]))
+        if self.optimize_backbone:
+            for layer_idx in range(len(backbone_dims)):
+                # We add +3 because each backbone block has bias vector in the Linear layer and 2 vectors in the BatchNorm
+                if layer_idx == 0:
+                    self.weights_matrices_dims.append((x_dim + 3, backbone_dims[layer_idx]))
+                else:
+                    self.weights_matrices_dims.append((backbone_dims[layer_idx-1] + 3, backbone_dims[layer_idx]))
 
         self.decoder = DecodingNetwork(
             n_way=self.n_way,
@@ -196,32 +200,31 @@ class LEO(MetaTemplate):
         weights_vectors_dims = [dim[0] * dim[1] for dim in self.weights_matrices_dims]
         weights_components = weights.split(weights_vectors_dims)
 
-        clf_weights = weights_components[0]
-        backbone_blocks_weights = weights_components[1:]
-
-        clf_matrix_dims = self.weights_matrices_dims[0]
-        backbone_matrices_dims = self.weights_matrices_dims[1:]
-
         # First we set the classifier weights
+        clf_weights = weights_components[0]
+        clf_matrix_dims = self.weights_matrices_dims[0]
         clf_weight, clf_bias = clf_weights.view(clf_matrix_dims).split([clf_matrix_dims[0] - 1, 1])
         clf_bias = clf_bias.squeeze()
         self.classifier.weight.fast = clf_weight.T
         self.classifier.bias.fast = clf_bias
 
-        # Then we set the backbone weights
-        for layer_idx, block_weights in enumerate(backbone_blocks_weights):
-            block_matrix_dims = backbone_matrices_dims[layer_idx]
-            # Each backbone block contains a linear layer with a bias followed by a BatchNorm
-            lin_weight, lin_bias, batch_norm_weight, batch_norm_bias = (
-                block_weights.view(backbone_matrices_dims[layer_idx]).split([block_matrix_dims[0] - 3, 1, 1, 1])
-            )
-            lin_bias = lin_bias.squeeze()
-            batch_norm_weight = batch_norm_weight.squeeze()
-            batch_norm_bias = batch_norm_bias.squeeze()
-            self.feature.encoder[layer_idx][0].weight.fast = lin_weight.T
-            self.feature.encoder[layer_idx][0].bias.fast = lin_bias
-            self.feature.encoder[layer_idx][1].weight.fast = batch_norm_weight
-            self.feature.encoder[layer_idx][1].bias.fast = batch_norm_bias
+        if self.optimize_backbone:
+            backbone_blocks_weights = weights_components[1:]
+            backbone_matrices_dims = self.weights_matrices_dims[1:]
+            # Then we set the backbone weights
+            for layer_idx, block_weights in enumerate(backbone_blocks_weights):
+                block_matrix_dims = backbone_matrices_dims[layer_idx]
+                # Each backbone block contains a linear layer with a bias followed by a BatchNorm
+                lin_weight, lin_bias, batch_norm_weight, batch_norm_bias = (
+                    block_weights.view(backbone_matrices_dims[layer_idx]).split([block_matrix_dims[0] - 3, 1, 1, 1])
+                )
+                lin_bias = lin_bias.squeeze()
+                batch_norm_weight = batch_norm_weight.squeeze()
+                batch_norm_bias = batch_norm_bias.squeeze()
+                self.feature.encoder[layer_idx][0].weight.fast = lin_weight.T
+                self.feature.encoder[layer_idx][0].bias.fast = lin_bias
+                self.feature.encoder[layer_idx][1].weight.fast = batch_norm_weight
+                self.feature.encoder[layer_idx][1].bias.fast = batch_norm_bias
 
     def calculate_scores_and_regularization_parameters(self, x, y=None):
         if torch.cuda.is_available():
@@ -277,8 +280,6 @@ class LEO(MetaTemplate):
     def set_forward_loss(self, x, y=None):
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
 
-        # TODO: Perhaps include decoder bias
-        #orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
 
         if y is None:  # Classification task
             y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
@@ -289,12 +290,12 @@ class LEO(MetaTemplate):
             y_query = y_query.cuda()
 
         loss = self.loss_fn(scores, y_query)
-        regularized_loss = (
-                loss +
-                self.kl_coef * kl_div +
-                self.encoder_penalty_coef * encoder_penalty# +
-                #self.orthogonality_penalty_coef * orthogonality_penalty
-        )
+        regularized_loss = loss + self.kl_coef * kl_div + self.encoder_penalty_coef * encoder_penalty
+
+        if not self.optimize_backbone:
+            # TODO: Perhaps include decoder bias
+            orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
+            regularized_loss = regularized_loss + self.orthogonality_penalty_coef * orthogonality_penalty
 
         return regularized_loss
 
