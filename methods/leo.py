@@ -253,6 +253,7 @@ class LEO(MetaTemplate):
             latents_z = latents_z - self.inner_lr * grad
             weights = self.decoder(latents_z)
             self.set_weights(weights)
+            print(f"inner loop iter {i} weights", weights)
             print(f"inner loop iter {i} scores", scores)
             print(f"inner loop iter {i} kl_div", kl_div)
             print(f"inner loop iter {i} encoder first layer lin weights", self.feature.encoder[0][0].weight.fast)
@@ -273,6 +274,7 @@ class LEO(MetaTemplate):
             grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
             weights = weights - self.finetuning_lr * grad
             self.set_weights(weights)
+            print(f"fine-tuning loop iter {i} weights", weights)
             print(f"fine-tuning loop iter {i} scores", scores)
             print(f"fine-tuning loop iter {i} kl_div", kl_div)
             print(f"fine-tuning loop iter {i} encoder first layer lin weights", self.feature.encoder[0][0].weight.fast)
