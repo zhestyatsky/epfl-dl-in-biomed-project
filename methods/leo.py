@@ -218,10 +218,10 @@ class LEO(MetaTemplate):
             lin_bias = lin_bias.squeeze()
             batch_norm_weight = batch_norm_weight.squeeze()
             batch_norm_bias = batch_norm_bias.squeeze()
-            self.feature.encoder[layer_idx][0].weight = lin_weight
-            self.feature.encoder[layer_idx][0].bias = lin_bias
-            self.feature.encoder[layer_idx][1].weight = batch_norm_weight
-            self.feature.encoder[layer_idx][1].bias = batch_norm_bias
+            self.feature.encoder[layer_idx][0].weight.fast = lin_weight
+            self.feature.encoder[layer_idx][0].bias.fast = lin_bias
+            self.feature.encoder[layer_idx][1].weight.fast = batch_norm_weight
+            self.feature.encoder[layer_idx][1].bias.fast = batch_norm_bias
 
     def calculate_scores_and_regularization_parameters(self, x, y=None):
         if torch.cuda.is_available():
