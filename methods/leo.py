@@ -75,10 +75,13 @@ class EncodingNetwork(nn.Module):
 class DecodingNetwork(nn.Module):
     def __init__(self, n_way, latent_dim, output_dim):
         super().__init__()
-        self.decoding_layer = nn.Linear(n_way * latent_dim, 2 * output_dim)
+        self.n_way = n_way
+        self.latent_dim = latent_dim
+        self.decoding_layer = nn.Linear(self.n_way*self.latent_dim, 2 * output_dim)
         self.normal_distribution = NormalDistribution(output_dim=output_dim)
 
     def forward(self, latent_output):
+        latent_output = latent_output.view(self.n_way*self.latent_dim)
         decoded_output = self.decoding_layer(latent_output)
         means, std_logs = decoded_output.chunk(chunks=2, dim=-1)
         output, _ = self.normal_distribution(means, std_logs)
@@ -140,21 +143,19 @@ class LEO(MetaTemplate):
             n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.latent_space_dim, dropout=self.dropout,
         )
 
-        self.decoders = nn.ModuleList()
+        # We add +1 because of the classifier bias vector
+        self.weights_matrices_dims = [(self.feat_dim + 1,  n_way)]
         for layer_idx in range(len(backbone_dims)):
             # We add +3 because each backbone block has bias vector in the Linear layer and 2 vectors in the BatchNorm
             if layer_idx == 0:
-                output_dim = backbone_dims[layer_idx] + 3
-                n_outputs = x_dim
+                self.weights_matrices_dims.append((x_dim + 3, backbone_dims[layer_idx]))
             else:
-                output_dim = backbone_dims[layer_idx] + 3
-                n_outputs = backbone_dims[layer_idx-1]
-            self.decoders.append(
-                DecodingNetwork(latent_dim=self.latent_space_dim, output_dim=output_dim, n_outputs=n_outputs)
-            )
-        # We add +1 because of the classifier bias vector
-        self.decoders.append(
-            DecodingNetwork(latent_dim=self.latent_space_dim, output_dim=self.feat_dim+1, n_outputs=n_way)
+                self.weights_matrices_dims.append((backbone_dims[layer_idx-1] + 3, backbone_dims[layer_idx]))
+
+        self.decoder = DecodingNetwork(
+            n_way=self.n_way,
+            latent_dim=self.latent_space_dim,
+            output_dim=sum(dims[0] * dims[1] for dims in self.weights_matrices_dims),
         )
 
         self.inner_lr = nn.Parameter(torch.tensor(inner_lr_init, dtype=torch.float32))
@@ -190,12 +191,28 @@ class LEO(MetaTemplate):
         return torch.mean((correlation_matrix - identity) ** 2)
 
     def set_weights(self, weights):
-        # First we set the backbone weights.
-        for layer_idx in range(self.backbone_dims):
-            weight = weights[layer_idx]
-            backbone_dim = self.backbone_dims[layer_idx]
+        weights_vectors_dims = [dim[0] * dim[1] for dim in self.weights_matrices_dims]
+        weights_components = weights.split(weights_vectors_dims)
+
+        clf_weights = weights_components[0]
+        backbone_blocks_weights = weights_components[1:]
+
+        clf_matrix_dims = self.weights_matrices_dims[0]
+        backbone_matrices_dims = self.weights_matrices_dims[1:]
+
+        # First we set the classifier weights
+        clf_weight, clf_bias = clf_weights.view(clf_matrix_dims).split([clf_matrix_dims[0] - 1, 1])
+        clf_bias = clf_bias.squeeze()
+        self.classifier.weight.fast = clf_weight
+        self.classifier.bias.fast = clf_bias
+
+        # Then we set the backbone weights
+        for layer_idx, block_weights in enumerate(backbone_blocks_weights):
+            block_matrix_dims = backbone_matrices_dims[layer_idx]
             # Each backbone block contains a linear layer with a bias followed by a BatchNorm
-            lin_weight, lin_bias, batch_norm_weight, batch_norm_bias = weight.split([backbone_dim, 1, 1, 1], dim=-1)
+            lin_weight, lin_bias, batch_norm_weight, batch_norm_bias = (
+                block_weights.view(backbone_matrices_dims[layer_idx]).split([block_matrix_dims[0] - 3, 1, 1, 1])
+            )
             lin_bias = lin_bias.squeeze()
             batch_norm_weight = batch_norm_weight.squeeze()
             batch_norm_bias = batch_norm_bias.squeeze()
@@ -203,12 +220,6 @@ class LEO(MetaTemplate):
             self.feature.encoder[layer_idx][0].bias = lin_bias
             self.feature.encoder[layer_idx][1].weight = batch_norm_weight
             self.feature.encoder[layer_idx][1].bias = batch_norm_bias
-
-        # Finally we set the classifier weights
-        clf_weight, clf_bias = weights[-1].split([self.feat_dim, 1], dim=-1)
-        clf_bias = clf_bias.squeeze()
-        self.classifier.weight.fast = clf_weight
-        self.classifier.bias.fast = clf_bias
 
     def calculate_scores_and_regularization_parameters(self, x, y=None):
         if torch.cuda.is_available():
@@ -229,7 +240,7 @@ class LEO(MetaTemplate):
 
         latents_z, kl_div = self.encoder(x_support)
         latents_z_init = latents_z.detach()
-        weights = [decoder(latents_z) for decoder in self.decoders]
+        weights = self.decoder(latents_z)
         self.set_weights(weights)
 
         # Meta training inner loop
@@ -238,17 +249,15 @@ class LEO(MetaTemplate):
             set_loss = self.loss_fn(scores, y_support)
             grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
             latents_z = latents_z - self.inner_lr * grad
-
-            weights = [decoder(latents_z) for decoder in self.decoders]
+            weights = self.decoder(latents_z)
             self.set_weights(weights)
 
         # Meta training fine-tuning loop
         for _ in range(self.num_finetuning_steps):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
-            grad = torch.autograd.grad(set_loss, weights, create_graph=True)
-            for weight_idx in range(len(weights)):
-                weights[weight_idx] = weights[weight_idx] - self.finetuning_lr * grad[weight_idx]
+            grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
+            weights = weights - self.finetuning_lr * grad
             self.set_weights(weights)
 
         scores = self.forward(x_query)
@@ -266,8 +275,8 @@ class LEO(MetaTemplate):
     def set_forward_loss(self, x, y=None):
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
 
-        # TODO: Include all decoders
-        orthogonality_penalty = self.orthogonality(list(self.decoders.parameters())[0])
+        # TODO: Perhaps include decoder bias
+        orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
 
         if y is None:  # Classification task
             y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
@@ -321,7 +330,7 @@ class LEO(MetaTemplate):
                 loss_q.backward()
 
                 # Check for NaN values in the gradients
-                for param in [*self.encoder.parameters(), *self.decoders.parameters(), self.inner_lr, self.finetuning_lr]:
+                for param in [*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr]:
                     if torch.isnan(param.grad).any():
                         # Create a mask for NaN values in the gradients
                         nan_mask = torch.isnan(param.grad)
@@ -329,8 +338,8 @@ class LEO(MetaTemplate):
                         param.grad[nan_mask] = 0.0
 
                 # clip gradient if necessary
-                nn.utils.clip_grad_value_([*self.encoder.parameters(), *self.decoders.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_threshold)
-                nn.utils.clip_grad_norm_([*self.encoder.parameters(), *self.decoders.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_norm_threshold)
+                nn.utils.clip_grad_value_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_threshold)
+                nn.utils.clip_grad_norm_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_norm_threshold)
 
                 optimizer.step()
                 task_count = 0
