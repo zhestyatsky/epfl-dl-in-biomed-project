@@ -1,0 +1,2117 @@
+/home/boris_zhestyankin/miniconda3/envs/fewshotbench/lib/python3.10/site-packages/hydra/_internal/defaults_list.py:251: UserWarning: In 'main': Defaults list is missing `_self_`. See https://hydra.cc/docs/1.2/upgrades/1.0_to_1.1/default_composition_order for more information
+  warnings.warn(msg, UserWarning)
+/home/boris_zhestyankin/epfl-dl-in-biomed-project/datasets/cell/utils.py:66: ImplicitModificationWarning: Trying to modify attribute `.obs` of view, initializing view as actual.
+  self.adata.obs['label'] = pd.Categorical(values=truth_labels)
+/home/boris_zhestyankin/miniconda3/envs/fewshotbench/lib/python3.10/site-packages/scanpy/preprocessing/_simple.py:373: UserWarning: Received a view of an AnnData. Making a copy.
+  view_to_actual(adata)
+/home/boris_zhestyankin/miniconda3/envs/fewshotbench/lib/python3.10/site-packages/torch/utils/data/dataloader.py:560: UserWarning: This DataLoader will create 4 worker processes in total. Our suggested max number of worker in current system is 1, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  warnings.warn(_create_warning_msg(
+/home/boris_zhestyankin/epfl-dl-in-biomed-project/datasets/cell/utils.py:66: ImplicitModificationWarning: Trying to modify attribute `.obs` of view, initializing view as actual.
+  self.adata.obs['label'] = pd.Categorical(values=truth_labels)
+/home/boris_zhestyankin/miniconda3/envs/fewshotbench/lib/python3.10/site-packages/scanpy/preprocessing/_simple.py:373: UserWarning: Received a view of an AnnData. Making a copy.
+  view_to_actual(adata)
+/home/boris_zhestyankin/miniconda3/envs/fewshotbench/lib/python3.10/site-packages/torch/utils/data/dataloader.py:560: UserWarning: This DataLoader will create 4 worker processes in total. Our suggested max number of worker in current system is 1, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  warnings.warn(_create_warning_msg(
+/home/boris_zhestyankin/miniconda3/envs/fewshotbench/lib/python3.10/site-packages/torch/utils/data/dataloader.py:560: UserWarning: This DataLoader will create 4 worker processes in total. Our suggested max number of worker in current system is 1, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  warnings.warn(_create_warning_msg(
+dataset:
+  type: classification
+  simple_cls:
+    _target_: datasets.cell.tabula_muris.TMSimpleDataset
+  set_cls:
+    n_way: 5
+    n_support: 1
+    n_query: 15
+    _target_: datasets.cell.tabula_muris.TMSetDataset
+  name: tabula_muris
+eval_split:
+- train
+- val
+- test
+backbone:
+  _target_: backbones.fcnet.FCNet
+  layer_dim:
+  - 64
+  - 64
+train_classes: 59
+n_way: 5
+n_shot: 1
+n_query: 15
+method:
+  name: leo
+  train_batch: null
+  val_batch: null
+  fast_weight: true
+  start_epoch: 0
+  eval_type: set
+  stop_epoch: 60
+  type: meta
+  cls:
+    n_way: 5
+    n_support: 1
+    _target_: methods.leo.LEO
+    n_task: 4
+    inner_lr_init: 1
+    finetuning_lr_init: 0.001
+    num_adaptation_steps: 10
+    kl_coef: 0.001
+    orthogonality_penalty_coef: 0.1
+    encoder_penalty_coef: 1.0e-09
+    dropout: 0.3
+    gradient_threshold: 0.1
+    gradient_norm_threshold: 0.1
+    latent_space_dim: 8
+    optimize_backbone: false
+  n_task: 4
+  latent_space_dim: 8
+  leo_inner_lr_init: 1
+  leo_finetuning_lr_init: 0.001
+  num_adaptation_steps: 10
+  kl_coef: 0.001
+  orthogonality_penalty_coef: 0.1
+  encoder_penalty_coef: 1.0e-09
+  dropout: 0.3
+  gradient_threshold: 0.1
+  gradient_norm_threshold: 0.1
+  weight_decay: 1.0e-06
+  optimize_backbone: false
+model: FCNet
+mode: train
+exp:
+  name: dataset_tabula_muris_n_shot_1_lr_0.0003_latent_space_dim_8_weight_decay_1e-06_num_adaptation_steps_10
+  save_freq: 10
+  resume: false
+  seed: 42
+  val_freq: 1
+optimizer: Adam
+lr: 0.0003
+optimizer_cls:
+  _target_: torch.optim.Adam
+  lr: 0.0003
+checkpoint:
+  dir: checkpoints/dataset_tabula_muris_n_shot_1_lr_0.0003_latent_space_dim_8_weight_decay_1e-06_num_adaptation_steps_10/tabula_muris/leo_FCNet
+  test_iter: best_model
+  time: latest
+wandb:
+  project: leo
+  entity: leo
+  mode: disabled
+iter_num: 600
+
+Model Architecture:
+LEO(
+  (feature): FCNet(
+    (encoder): Sequential(
+      (0): Sequential(
+        (0): Linear_fw(in_features=2866, out_features=64, bias=True)
+        (1): BatchNorm1d_fw(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (2): ReLU()
+        (3): Dropout(p=0.2, inplace=False)
+      )
+      (1): Sequential(
+        (0): Linear_fw(in_features=64, out_features=64, bias=True)
+        (1): BatchNorm1d_fw(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        (2): ReLU()
+        (3): Dropout(p=0.2, inplace=False)
+      )
+    )
+  )
+  (classifier): Linear_fw(in_features=64, out_features=5, bias=True)
+  (loss_fn): CrossEntropyLoss()
+  (dropout): Dropout(p=0.3, inplace=False)
+  (encoder): EncodingNetwork(
+    (dropout): Dropout(p=0.3, inplace=False)
+    (encoding_layer): Linear(in_features=2866, out_features=8, bias=True)
+    (relation_net): Linear(in_features=16, out_features=16, bias=True)
+    (normal_distribution): NormalDistribution()
+  )
+  (decoder): DecodingNetwork(
+    (decoding_layer): Linear(in_features=40, out_features=650, bias=True)
+    (normal_distribution): NormalDistribution()
+  )
+)
+Optimizer:
+Adam (
+Parameter Group 0
+    amsgrad: False
+    betas: (0.9, 0.999)
+    capturable: False
+    differentiable: False
+    eps: 1e-08
+    foreach: None
+    fused: None
+    lr: 0.0003
+    maximize: False
+    weight_decay: 1e-06
+)
+Epoch 0 | Batch 0/100 | Loss 3.306562
+InnerLR 1.000000
+FineTuningLR 0.001000
+Epoch 0 | Batch 10/100 | Loss 4.188011
+InnerLR 0.999401
+FineTuningLR 0.001599
+Epoch 0 | Batch 20/100 | Loss 4.359345
+InnerLR 0.998504
+FineTuningLR 0.002496
+Epoch 0 | Batch 30/100 | Loss 4.327646
+InnerLR 0.997906
+FineTuningLR 0.003094
+Epoch 0 | Batch 40/100 | Loss 4.264729
+InnerLR 0.997006
+FineTuningLR 0.003994
+Epoch 0 | Batch 50/100 | Loss 4.201005
+InnerLR 0.996406
+FineTuningLR 0.004594
+Epoch 0 | Batch 60/100 | Loss 4.173917
+InnerLR 0.995505
+FineTuningLR 0.005495
+Epoch 0 | Batch 70/100 | Loss 4.152269
+InnerLR 0.994907
+FineTuningLR 0.006093
+Epoch 0 | Batch 80/100 | Loss 4.165682
+InnerLR 0.994007
+FineTuningLR 0.006993
+Epoch 0 | Batch 90/100 | Loss 4.166670
+InnerLR 0.993407
+FineTuningLR 0.007593
+100 Accuracy = 25.99% +- 1.41%
+Epoch 0: 25.99
+best model! save...
+Epoch 1 | Batch 0/100 | Loss 3.682813
+InnerLR 0.992507
+FineTuningLR 0.008493
+Epoch 1 | Batch 10/100 | Loss 3.881463
+InnerLR 0.991904
+FineTuningLR 0.009096
+Epoch 1 | Batch 20/100 | Loss 3.830169
+InnerLR 0.990999
+FineTuningLR 0.010001
+Epoch 1 | Batch 30/100 | Loss 3.908287
+InnerLR 0.990393
+FineTuningLR 0.010607
+Epoch 1 | Batch 40/100 | Loss 3.907379
+InnerLR 0.989487
+FineTuningLR 0.011514
+Epoch 1 | Batch 50/100 | Loss 3.944133
+InnerLR 0.988883
+FineTuningLR 0.012117
+Epoch 1 | Batch 60/100 | Loss 3.882903
+InnerLR 0.987975
+FineTuningLR 0.013025
+Epoch 1 | Batch 70/100 | Loss 3.898582
+InnerLR 0.987370
+FineTuningLR 0.013631
+Epoch 1 | Batch 80/100 | Loss 3.906249
+InnerLR 0.986461
+FineTuningLR 0.014539
+Epoch 1 | Batch 90/100 | Loss 3.898469
+InnerLR 0.985855
+FineTuningLR 0.015145
+100 Accuracy = 24.85% +- 1.32%
+Epoch 1: 24.85
+Epoch 2 | Batch 0/100 | Loss 3.936868
+InnerLR 0.984942
+FineTuningLR 0.016059
+Epoch 2 | Batch 10/100 | Loss 3.953752
+InnerLR 0.984332
+FineTuningLR 0.016668
+Epoch 2 | Batch 20/100 | Loss 3.949063
+InnerLR 0.983422
+FineTuningLR 0.017578
+Epoch 2 | Batch 30/100 | Loss 3.973777
+InnerLR 0.982812
+FineTuningLR 0.018189
+Epoch 2 | Batch 40/100 | Loss 4.031846
+InnerLR 0.981895
+FineTuningLR 0.019105
+Epoch 2 | Batch 50/100 | Loss 3.981473
+InnerLR 0.981285
+FineTuningLR 0.019716
+Epoch 2 | Batch 60/100 | Loss 3.943994
+InnerLR 0.980373
+FineTuningLR 0.020627
+Epoch 2 | Batch 70/100 | Loss 3.965947
+InnerLR 0.979764
+FineTuningLR 0.021236
+Epoch 2 | Batch 80/100 | Loss 3.953376
+InnerLR 0.978848
+FineTuningLR 0.022152
+Epoch 2 | Batch 90/100 | Loss 3.912181
+InnerLR 0.978235
+FineTuningLR 0.022765
+100 Accuracy = 26.88% +- 1.19%
+Epoch 2: 26.88
+best model! save...
+Epoch 3 | Batch 0/100 | Loss 4.429300
+InnerLR 0.977317
+FineTuningLR 0.023684
+Epoch 3 | Batch 10/100 | Loss 3.653122
+InnerLR 0.976705
+FineTuningLR 0.024295
+Epoch 3 | Batch 20/100 | Loss 3.689050
+InnerLR 0.975792
+FineTuningLR 0.025208
+Epoch 3 | Batch 30/100 | Loss 3.715226
+InnerLR 0.975184
+FineTuningLR 0.025816
+Epoch 3 | Batch 40/100 | Loss 3.717218
+InnerLR 0.974277
+FineTuningLR 0.026723
+Epoch 3 | Batch 50/100 | Loss 3.744105
+InnerLR 0.973674
+FineTuningLR 0.027327
+Epoch 3 | Batch 60/100 | Loss 3.681739
+InnerLR 0.972761
+FineTuningLR 0.028239
+Epoch 3 | Batch 70/100 | Loss 3.695326
+InnerLR 0.972150
+FineTuningLR 0.028850
+Epoch 3 | Batch 80/100 | Loss 3.686852
+InnerLR 0.971231
+FineTuningLR 0.029770
+Epoch 3 | Batch 90/100 | Loss 3.678765
+InnerLR 0.970617
+FineTuningLR 0.030384
+100 Accuracy = 26.76% +- 1.32%
+Epoch 3: 26.76
+Epoch 4 | Batch 0/100 | Loss 3.536460
+InnerLR 0.969694
+FineTuningLR 0.031307
+Epoch 4 | Batch 10/100 | Loss 3.524050
+InnerLR 0.969075
+FineTuningLR 0.031926
+Epoch 4 | Batch 20/100 | Loss 3.350787
+InnerLR 0.968147
+FineTuningLR 0.032854
+Epoch 4 | Batch 30/100 | Loss 3.405107
+InnerLR 0.967527
+FineTuningLR 0.033474
+Epoch 4 | Batch 40/100 | Loss 3.443884
+InnerLR 0.966600
+FineTuningLR 0.034401
+Epoch 4 | Batch 50/100 | Loss 3.541333
+InnerLR 0.965984
+FineTuningLR 0.035017
+Epoch 4 | Batch 60/100 | Loss 3.512493
+InnerLR 0.965064
+FineTuningLR 0.035937
+Epoch 4 | Batch 70/100 | Loss 3.533177
+InnerLR 0.964451
+FineTuningLR 0.036549
+Epoch 4 | Batch 80/100 | Loss 3.518735
+InnerLR 0.963534
+FineTuningLR 0.037467
+Epoch 4 | Batch 90/100 | Loss 3.493857
+InnerLR 0.962921
+FineTuningLR 0.038080
+100 Accuracy = 25.89% +- 1.40%
+Epoch 4: 25.89
+Epoch 5 | Batch 0/100 | Loss 3.218406
+InnerLR 0.961991
+FineTuningLR 0.039010
+Epoch 5 | Batch 10/100 | Loss 3.443558
+InnerLR 0.961371
+FineTuningLR 0.039630
+Epoch 5 | Batch 20/100 | Loss 3.628260
+InnerLR 0.960444
+FineTuningLR 0.040557
+Epoch 5 | Batch 30/100 | Loss 3.549913
+InnerLR 0.959826
+FineTuningLR 0.041175
+Epoch 5 | Batch 40/100 | Loss 3.560712
+InnerLR 0.958896
+FineTuningLR 0.042105
+Epoch 5 | Batch 50/100 | Loss 3.608520
+InnerLR 0.958276
+FineTuningLR 0.042726
+Epoch 5 | Batch 60/100 | Loss 3.616041
+InnerLR 0.957352
+FineTuningLR 0.043650
+Epoch 5 | Batch 70/100 | Loss 3.590713
+InnerLR 0.956739
+FineTuningLR 0.044263
+Epoch 5 | Batch 80/100 | Loss 3.618366
+InnerLR 0.955817
+FineTuningLR 0.045184
+Epoch 5 | Batch 90/100 | Loss 3.572458
+InnerLR 0.955200
+FineTuningLR 0.045802
+100 Accuracy = 28.19% +- 1.44%
+Epoch 5: 28.19
+best model! save...
+Epoch 6 | Batch 0/100 | Loss 3.784197
+InnerLR 0.954266
+FineTuningLR 0.046735
+Epoch 6 | Batch 10/100 | Loss 3.735828
+InnerLR 0.953644
+FineTuningLR 0.047357
+Epoch 6 | Batch 20/100 | Loss 3.533167
+InnerLR 0.952707
+FineTuningLR 0.048295
+Epoch 6 | Batch 30/100 | Loss 3.545074
+InnerLR 0.952082
+FineTuningLR 0.048920
+Epoch 6 | Batch 40/100 | Loss 3.634534
+InnerLR 0.951148
+FineTuningLR 0.049854
+Epoch 6 | Batch 50/100 | Loss 3.543579
+InnerLR 0.950521
+FineTuningLR 0.050481
+Epoch 6 | Batch 60/100 | Loss 3.396158
+InnerLR 0.949578
+FineTuningLR 0.051424
+Epoch 6 | Batch 70/100 | Loss 3.421648
+InnerLR 0.948944
+FineTuningLR 0.052058
+Epoch 6 | Batch 80/100 | Loss 3.429296
+InnerLR 0.947997
+FineTuningLR 0.053005
+Epoch 6 | Batch 90/100 | Loss 3.412437
+InnerLR 0.947368
+FineTuningLR 0.053634
+100 Accuracy = 26.97% +- 1.30%
+Epoch 6: 26.97
+Epoch 7 | Batch 0/100 | Loss 4.125389
+InnerLR 0.946431
+FineTuningLR 0.054572
+Epoch 7 | Batch 10/100 | Loss 3.491683
+InnerLR 0.945805
+FineTuningLR 0.055197
+Epoch 7 | Batch 20/100 | Loss 3.411724
+InnerLR 0.944866
+FineTuningLR 0.056137
+Epoch 7 | Batch 30/100 | Loss 3.448969
+InnerLR 0.944246
+FineTuningLR 0.056757
+Epoch 7 | Batch 40/100 | Loss 3.515382
+InnerLR 0.943318
+FineTuningLR 0.057684
+Epoch 7 | Batch 50/100 | Loss 3.481760
+InnerLR 0.942694
+FineTuningLR 0.058308
+Epoch 7 | Batch 60/100 | Loss 3.425036
+InnerLR 0.941757
+FineTuningLR 0.059245
+Epoch 7 | Batch 70/100 | Loss 3.484494
+InnerLR 0.941134
+FineTuningLR 0.059869
+Epoch 7 | Batch 80/100 | Loss 3.434981
+InnerLR 0.940202
+FineTuningLR 0.060801
+Epoch 7 | Batch 90/100 | Loss 3.397733
+InnerLR 0.939576
+FineTuningLR 0.061426
+100 Accuracy = 28.12% +- 1.50%
+Epoch 7: 28.12
+Epoch 8 | Batch 0/100 | Loss 4.390747
+InnerLR 0.938640
+FineTuningLR 0.062363
+Epoch 8 | Batch 10/100 | Loss 3.249442
+InnerLR 0.938012
+FineTuningLR 0.062991
+Epoch 8 | Batch 20/100 | Loss 3.308925
+InnerLR 0.937072
+FineTuningLR 0.063931
+Epoch 8 | Batch 30/100 | Loss 3.269571
+InnerLR 0.936451
+FineTuningLR 0.064552
+Epoch 8 | Batch 40/100 | Loss 3.277063
+InnerLR 0.935519
+FineTuningLR 0.065484
+Epoch 8 | Batch 50/100 | Loss 3.315221
+InnerLR 0.934896
+FineTuningLR 0.066107
+Epoch 8 | Batch 60/100 | Loss 3.273828
+InnerLR 0.933961
+FineTuningLR 0.067042
+Epoch 8 | Batch 70/100 | Loss 3.269970
+InnerLR 0.933335
+FineTuningLR 0.067668
+Epoch 8 | Batch 80/100 | Loss 3.269600
+InnerLR 0.932396
+FineTuningLR 0.068607
+Epoch 8 | Batch 90/100 | Loss 3.273094
+InnerLR 0.931769
+FineTuningLR 0.069234
+100 Accuracy = 27.87% +- 1.39%
+Epoch 8: 27.87
+Epoch 9 | Batch 0/100 | Loss 2.767313
+InnerLR 0.930824
+FineTuningLR 0.070179
+Epoch 9 | Batch 10/100 | Loss 3.126250
+InnerLR 0.930194
+FineTuningLR 0.070810
+Epoch 9 | Batch 20/100 | Loss 3.120077
+InnerLR 0.929251
+FineTuningLR 0.071753
+Epoch 9 | Batch 30/100 | Loss 3.167039
+InnerLR 0.928617
+FineTuningLR 0.072387
+Epoch 9 | Batch 40/100 | Loss 3.176031
+InnerLR 0.927664
+FineTuningLR 0.073339
+Epoch 9 | Batch 50/100 | Loss 3.249267
+InnerLR 0.927035
+FineTuningLR 0.073968
+Epoch 9 | Batch 60/100 | Loss 3.223045
+InnerLR 0.926092
+FineTuningLR 0.074911
+Epoch 9 | Batch 70/100 | Loss 3.209253
+InnerLR 0.925466
+FineTuningLR 0.075538
+Epoch 9 | Batch 80/100 | Loss 3.219724
+InnerLR 0.924529
+FineTuningLR 0.076475
+Epoch 9 | Batch 90/100 | Loss 3.190101
+InnerLR 0.923902
+FineTuningLR 0.077102
+100 Accuracy = 27.48% +- 1.37%
+Epoch 9: 27.48
+Epoch 10 | Batch 0/100 | Loss 3.399724
+InnerLR 0.922958
+FineTuningLR 0.078046
+Epoch 10 | Batch 10/100 | Loss 3.466364
+InnerLR 0.922332
+FineTuningLR 0.078671
+Epoch 10 | Batch 20/100 | Loss 3.264438
+InnerLR 0.921393
+FineTuningLR 0.079611
+Epoch 10 | Batch 30/100 | Loss 3.120192
+InnerLR 0.920763
+FineTuningLR 0.080241
+Epoch 10 | Batch 40/100 | Loss 3.133250
+InnerLR 0.919814
+FineTuningLR 0.081190
+Epoch 10 | Batch 50/100 | Loss 3.076206
+InnerLR 0.919182
+FineTuningLR 0.081822
+Epoch 10 | Batch 60/100 | Loss 3.082280
+InnerLR 0.918230
+FineTuningLR 0.082774
+Epoch 10 | Batch 70/100 | Loss 3.086711
+InnerLR 0.917592
+FineTuningLR 0.083413
+Epoch 10 | Batch 80/100 | Loss 3.068191
+InnerLR 0.916632
+FineTuningLR 0.084372
+Epoch 10 | Batch 90/100 | Loss 3.077586
+InnerLR 0.915995
+FineTuningLR 0.085010
+100 Accuracy = 26.91% +- 1.52%
+Epoch 10: 26.91
+Epoch 11 | Batch 0/100 | Loss 2.756735
+InnerLR 0.915040
+FineTuningLR 0.085965
+Epoch 11 | Batch 10/100 | Loss 3.090715
+InnerLR 0.914402
+FineTuningLR 0.086603
+Epoch 11 | Batch 20/100 | Loss 3.133195
+InnerLR 0.913448
+FineTuningLR 0.087557
+Epoch 11 | Batch 30/100 | Loss 3.119400
+InnerLR 0.912814
+FineTuningLR 0.088191
+Epoch 11 | Batch 40/100 | Loss 3.179546
+InnerLR 0.911864
+FineTuningLR 0.089141
+Epoch 11 | Batch 50/100 | Loss 3.136546
+InnerLR 0.911232
+FineTuningLR 0.089773
+Epoch 11 | Batch 60/100 | Loss 3.073220
+InnerLR 0.910281
+FineTuningLR 0.090725
+Epoch 11 | Batch 70/100 | Loss 3.077017
+InnerLR 0.909646
+FineTuningLR 0.091359
+Epoch 11 | Batch 80/100 | Loss 3.059633
+InnerLR 0.908691
+FineTuningLR 0.092315
+Epoch 11 | Batch 90/100 | Loss 3.046582
+InnerLR 0.908057
+FineTuningLR 0.092949
+100 Accuracy = 29.64% +- 1.58%
+Epoch 11: 29.64
+best model! save...
+Epoch 12 | Batch 0/100 | Loss 3.123618
+InnerLR 0.907108
+FineTuningLR 0.093897
+Epoch 12 | Batch 10/100 | Loss 3.375010
+InnerLR 0.906481
+FineTuningLR 0.094525
+Epoch 12 | Batch 20/100 | Loss 3.127108
+InnerLR 0.905535
+FineTuningLR 0.095470
+Epoch 12 | Batch 30/100 | Loss 2.999315
+InnerLR 0.904903
+FineTuningLR 0.096103
+Epoch 12 | Batch 40/100 | Loss 3.026557
+InnerLR 0.903952
+FineTuningLR 0.097053
+Epoch 12 | Batch 50/100 | Loss 3.079261
+InnerLR 0.903321
+FineTuningLR 0.097685
+Epoch 12 | Batch 60/100 | Loss 3.033953
+InnerLR 0.902376
+FineTuningLR 0.098630
+Epoch 12 | Batch 70/100 | Loss 2.989914
+InnerLR 0.901744
+FineTuningLR 0.099261
+Epoch 12 | Batch 80/100 | Loss 2.997550
+InnerLR 0.900794
+FineTuningLR 0.100212
+Epoch 12 | Batch 90/100 | Loss 3.002782
+InnerLR 0.900164
+FineTuningLR 0.100842
+100 Accuracy = 27.61% +- 1.72%
+Epoch 12: 27.61
+Epoch 13 | Batch 0/100 | Loss 3.199066
+InnerLR 0.899222
+FineTuningLR 0.101784
+Epoch 13 | Batch 10/100 | Loss 3.109579
+InnerLR 0.898598
+FineTuningLR 0.102409
+Epoch 13 | Batch 20/100 | Loss 3.051005
+InnerLR 0.897654
+FineTuningLR 0.103352
+Epoch 13 | Batch 30/100 | Loss 3.030918
+InnerLR 0.897022
+FineTuningLR 0.103984
+Epoch 13 | Batch 40/100 | Loss 3.012078
+InnerLR 0.896069
+FineTuningLR 0.104937
+Epoch 13 | Batch 50/100 | Loss 2.956084
+InnerLR 0.895433
+FineTuningLR 0.105574
+Epoch 13 | Batch 60/100 | Loss 2.942118
+InnerLR 0.894477
+FineTuningLR 0.106529
+Epoch 13 | Batch 70/100 | Loss 2.940917
+InnerLR 0.893843
+FineTuningLR 0.107163
+Epoch 13 | Batch 80/100 | Loss 2.934767
+InnerLR 0.892886
+FineTuningLR 0.108120
+Epoch 13 | Batch 90/100 | Loss 2.962415
+InnerLR 0.892248
+FineTuningLR 0.108758
+100 Accuracy = 29.36% +- 1.54%
+Epoch 13: 29.36
+Epoch 14 | Batch 0/100 | Loss 3.136015
+InnerLR 0.891297
+FineTuningLR 0.109710
+Epoch 14 | Batch 10/100 | Loss 2.836283
+InnerLR 0.890665
+FineTuningLR 0.110342
+Epoch 14 | Batch 20/100 | Loss 2.832521
+InnerLR 0.889709
+FineTuningLR 0.111298
+Epoch 14 | Batch 30/100 | Loss 2.801504
+InnerLR 0.889068
+FineTuningLR 0.111939
+Epoch 14 | Batch 40/100 | Loss 2.822180
+InnerLR 0.888104
+FineTuningLR 0.112903
+Epoch 14 | Batch 50/100 | Loss 2.818950
+InnerLR 0.887459
+FineTuningLR 0.113548
+Epoch 14 | Batch 60/100 | Loss 2.856623
+InnerLR 0.886487
+FineTuningLR 0.114521
+Epoch 14 | Batch 70/100 | Loss 2.835729
+InnerLR 0.885838
+FineTuningLR 0.115169
+Epoch 14 | Batch 80/100 | Loss 2.827073
+InnerLR 0.884857
+FineTuningLR 0.116151
+Epoch 14 | Batch 90/100 | Loss 2.810633
+InnerLR 0.884203
+FineTuningLR 0.116805
+100 Accuracy = 29.36% +- 1.51%
+Epoch 14: 29.36
+Epoch 15 | Batch 0/100 | Loss 2.058855
+InnerLR 0.883225
+FineTuningLR 0.117783
+Epoch 15 | Batch 10/100 | Loss 2.668566
+InnerLR 0.882573
+FineTuningLR 0.118434
+Epoch 15 | Batch 20/100 | Loss 2.773739
+InnerLR 0.881598
+FineTuningLR 0.119410
+Epoch 15 | Batch 30/100 | Loss 2.751856
+InnerLR 0.880951
+FineTuningLR 0.120057
+Epoch 15 | Batch 40/100 | Loss 2.731941
+InnerLR 0.879976
+FineTuningLR 0.121033
+Epoch 15 | Batch 50/100 | Loss 2.709683
+InnerLR 0.879323
+FineTuningLR 0.121685
+Epoch 15 | Batch 60/100 | Loss 2.753853
+InnerLR 0.878345
+FineTuningLR 0.122664
+Epoch 15 | Batch 70/100 | Loss 2.699923
+InnerLR 0.877691
+FineTuningLR 0.123317
+Epoch 15 | Batch 80/100 | Loss 2.753465
+InnerLR 0.876713
+FineTuningLR 0.124296
+Epoch 15 | Batch 90/100 | Loss 2.770404
+InnerLR 0.876064
+FineTuningLR 0.124944
+100 Accuracy = 29.33% +- 1.63%
+Epoch 15: 29.33
+Epoch 16 | Batch 0/100 | Loss 2.247223
+InnerLR 0.875096
+FineTuningLR 0.125913
+Epoch 16 | Batch 10/100 | Loss 2.877821
+InnerLR 0.874455
+FineTuningLR 0.126554
+Epoch 16 | Batch 20/100 | Loss 2.776585
+InnerLR 0.873486
+FineTuningLR 0.127522
+Epoch 16 | Batch 30/100 | Loss 2.776698
+InnerLR 0.872840
+FineTuningLR 0.128169
+Epoch 16 | Batch 40/100 | Loss 2.762081
+InnerLR 0.871863
+FineTuningLR 0.129146
+Epoch 16 | Batch 50/100 | Loss 2.726735
+InnerLR 0.871210
+FineTuningLR 0.129799
+Epoch 16 | Batch 60/100 | Loss 2.676063
+InnerLR 0.870229
+FineTuningLR 0.130781
+Epoch 16 | Batch 70/100 | Loss 2.703128
+InnerLR 0.869578
+FineTuningLR 0.131432
+Epoch 16 | Batch 80/100 | Loss 2.694494
+InnerLR 0.868601
+FineTuningLR 0.132408
+Epoch 16 | Batch 90/100 | Loss 2.729367
+InnerLR 0.867950
+FineTuningLR 0.133059
+100 Accuracy = 28.71% +- 1.38%
+Epoch 16: 28.71
+Epoch 17 | Batch 0/100 | Loss 2.815934
+InnerLR 0.866978
+FineTuningLR 0.134032
+Epoch 17 | Batch 10/100 | Loss 2.602398
+InnerLR 0.866324
+FineTuningLR 0.134686
+Epoch 17 | Batch 20/100 | Loss 2.762046
+InnerLR 0.865343
+FineTuningLR 0.135667
+Epoch 17 | Batch 30/100 | Loss 2.714915
+InnerLR 0.864691
+FineTuningLR 0.136319
+Epoch 17 | Batch 40/100 | Loss 2.748460
+InnerLR 0.863712
+FineTuningLR 0.137298
+Epoch 17 | Batch 50/100 | Loss 2.748425
+InnerLR 0.863056
+FineTuningLR 0.137954
+Epoch 17 | Batch 60/100 | Loss 2.755008
+InnerLR 0.862070
+FineTuningLR 0.138941
+Epoch 17 | Batch 70/100 | Loss 2.742918
+InnerLR 0.861417
+FineTuningLR 0.139593
+Epoch 17 | Batch 80/100 | Loss 2.753219
+InnerLR 0.860439
+FineTuningLR 0.140572
+Epoch 17 | Batch 90/100 | Loss 2.765604
+InnerLR 0.859788
+FineTuningLR 0.141223
+100 Accuracy = 29.24% +- 1.59%
+Epoch 17: 29.24
+Epoch 18 | Batch 0/100 | Loss 2.302931
+InnerLR 0.858821
+FineTuningLR 0.142190
+Epoch 18 | Batch 10/100 | Loss 2.679553
+InnerLR 0.858170
+FineTuningLR 0.142841
+Epoch 18 | Batch 20/100 | Loss 2.666757
+InnerLR 0.857194
+FineTuningLR 0.143817
+Epoch 18 | Batch 30/100 | Loss 2.751555
+InnerLR 0.856546
+FineTuningLR 0.144465
+Epoch 18 | Batch 40/100 | Loss 2.745527
+InnerLR 0.855576
+FineTuningLR 0.145435
+Epoch 18 | Batch 50/100 | Loss 2.771045
+InnerLR 0.854936
+FineTuningLR 0.146076
+Epoch 18 | Batch 60/100 | Loss 2.801684
+InnerLR 0.853979
+FineTuningLR 0.147033
+Epoch 18 | Batch 70/100 | Loss 2.763613
+InnerLR 0.853336
+FineTuningLR 0.147675
+Epoch 18 | Batch 80/100 | Loss 2.781006
+InnerLR 0.852368
+FineTuningLR 0.148644
+Epoch 18 | Batch 90/100 | Loss 2.780486
+InnerLR 0.851717
+FineTuningLR 0.149295
+100 Accuracy = 28.77% +- 1.28%
+Epoch 18: 28.77
+Epoch 19 | Batch 0/100 | Loss 3.334011
+InnerLR 0.850734
+FineTuningLR 0.150278
+Epoch 19 | Batch 10/100 | Loss 2.706916
+InnerLR 0.850077
+FineTuningLR 0.150935
+Epoch 19 | Batch 20/100 | Loss 2.606014
+InnerLR 0.849094
+FineTuningLR 0.151918
+Epoch 19 | Batch 30/100 | Loss 2.670664
+InnerLR 0.848439
+FineTuningLR 0.152573
+Epoch 19 | Batch 40/100 | Loss 2.670216
+InnerLR 0.847462
+FineTuningLR 0.153551
+Epoch 19 | Batch 50/100 | Loss 2.638554
+InnerLR 0.846804
+FineTuningLR 0.154209
+Epoch 19 | Batch 60/100 | Loss 2.583230
+InnerLR 0.845808
+FineTuningLR 0.155205
+Epoch 19 | Batch 70/100 | Loss 2.584414
+InnerLR 0.845144
+FineTuningLR 0.155868
+Epoch 19 | Batch 80/100 | Loss 2.598957
+InnerLR 0.844151
+FineTuningLR 0.156862
+Epoch 19 | Batch 90/100 | Loss 2.597608
+InnerLR 0.843491
+FineTuningLR 0.157522
+100 Accuracy = 29.69% +- 1.50%
+Epoch 19: 29.69
+best model! save...
+Epoch 20 | Batch 0/100 | Loss 2.424258
+InnerLR 0.842508
+FineTuningLR 0.158505
+Epoch 20 | Batch 10/100 | Loss 2.781043
+InnerLR 0.841852
+FineTuningLR 0.159161
+Epoch 20 | Batch 20/100 | Loss 2.720015
+InnerLR 0.840870
+FineTuningLR 0.160144
+Epoch 20 | Batch 30/100 | Loss 2.684991
+InnerLR 0.840213
+FineTuningLR 0.160800
+Epoch 20 | Batch 40/100 | Loss 2.688835
+InnerLR 0.839232
+FineTuningLR 0.161782
+Epoch 20 | Batch 50/100 | Loss 2.625872
+InnerLR 0.838572
+FineTuningLR 0.162442
+Epoch 20 | Batch 60/100 | Loss 2.624610
+InnerLR 0.837577
+FineTuningLR 0.163437
+Epoch 20 | Batch 70/100 | Loss 2.575341
+InnerLR 0.836912
+FineTuningLR 0.164102
+Epoch 20 | Batch 80/100 | Loss 2.574703
+InnerLR 0.835919
+FineTuningLR 0.165095
+Epoch 20 | Batch 90/100 | Loss 2.580336
+InnerLR 0.835260
+FineTuningLR 0.165754
+100 Accuracy = 29.45% +- 1.32%
+Epoch 20: 29.45
+Epoch 21 | Batch 0/100 | Loss 1.722132
+InnerLR 0.834278
+FineTuningLR 0.166737
+Epoch 21 | Batch 10/100 | Loss 2.564920
+InnerLR 0.833620
+FineTuningLR 0.167395
+Epoch 21 | Batch 20/100 | Loss 2.599811
+InnerLR 0.832630
+FineTuningLR 0.168384
+Epoch 21 | Batch 30/100 | Loss 2.627203
+InnerLR 0.831970
+FineTuningLR 0.169044
+Epoch 21 | Batch 40/100 | Loss 2.661419
+InnerLR 0.830983
+FineTuningLR 0.170032
+Epoch 21 | Batch 50/100 | Loss 2.602872
+InnerLR 0.830322
+FineTuningLR 0.170693
+Epoch 21 | Batch 60/100 | Loss 2.598522
+InnerLR 0.829326
+FineTuningLR 0.171689
+Epoch 21 | Batch 70/100 | Loss 2.600791
+InnerLR 0.828663
+FineTuningLR 0.172353
+Epoch 21 | Batch 80/100 | Loss 2.584654
+InnerLR 0.827669
+FineTuningLR 0.173346
+Epoch 21 | Batch 90/100 | Loss 2.574636
+InnerLR 0.827005
+FineTuningLR 0.174010
+100 Accuracy = 29.99% +- 1.64%
+Epoch 21: 29.99
+best model! save...
+Epoch 22 | Batch 0/100 | Loss 2.344140
+InnerLR 0.826009
+FineTuningLR 0.175006
+Epoch 22 | Batch 10/100 | Loss 2.597799
+InnerLR 0.825347
+FineTuningLR 0.175669
+Epoch 22 | Batch 20/100 | Loss 2.425694
+InnerLR 0.824354
+FineTuningLR 0.176662
+Epoch 22 | Batch 30/100 | Loss 2.515230
+InnerLR 0.823691
+FineTuningLR 0.177325
+Epoch 22 | Batch 40/100 | Loss 2.441948
+InnerLR 0.822693
+FineTuningLR 0.178323
+Epoch 22 | Batch 50/100 | Loss 2.448431
+InnerLR 0.822030
+FineTuningLR 0.178986
+Epoch 22 | Batch 60/100 | Loss 2.433817
+InnerLR 0.821044
+FineTuningLR 0.179972
+Epoch 22 | Batch 70/100 | Loss 2.415600
+InnerLR 0.820380
+FineTuningLR 0.180636
+Epoch 22 | Batch 80/100 | Loss 2.438297
+InnerLR 0.819390
+FineTuningLR 0.181627
+Epoch 22 | Batch 90/100 | Loss 2.457800
+InnerLR 0.818730
+FineTuningLR 0.182287
+100 Accuracy = 30.45% +- 1.64%
+Epoch 22: 30.45
+best model! save...
+Epoch 23 | Batch 0/100 | Loss 3.378323
+InnerLR 0.817739
+FineTuningLR 0.183278
+Epoch 23 | Batch 10/100 | Loss 2.947019
+InnerLR 0.817077
+FineTuningLR 0.183940
+Epoch 23 | Batch 20/100 | Loss 2.767604
+InnerLR 0.816094
+FineTuningLR 0.184923
+Epoch 23 | Batch 30/100 | Loss 2.639279
+InnerLR 0.815431
+FineTuningLR 0.185586
+Epoch 23 | Batch 40/100 | Loss 2.626833
+InnerLR 0.814432
+FineTuningLR 0.186585
+Epoch 23 | Batch 50/100 | Loss 2.614726
+InnerLR 0.813767
+FineTuningLR 0.187251
+Epoch 23 | Batch 60/100 | Loss 2.565352
+InnerLR 0.812768
+FineTuningLR 0.188249
+Epoch 23 | Batch 70/100 | Loss 2.594510
+InnerLR 0.812101
+FineTuningLR 0.188916
+Epoch 23 | Batch 80/100 | Loss 2.573817
+InnerLR 0.811098
+FineTuningLR 0.189920
+Epoch 23 | Batch 90/100 | Loss 2.564390
+InnerLR 0.810425
+FineTuningLR 0.190592
+100 Accuracy = 31.03% +- 1.76%
+Epoch 23: 31.03
+best model! save...
+Epoch 24 | Batch 0/100 | Loss 2.437380
+InnerLR 0.809417
+FineTuningLR 0.191601
+Epoch 24 | Batch 10/100 | Loss 2.369545
+InnerLR 0.808746
+FineTuningLR 0.192272
+Epoch 24 | Batch 20/100 | Loss 2.341265
+InnerLR 0.807735
+FineTuningLR 0.193283
+Epoch 24 | Batch 30/100 | Loss 2.323044
+InnerLR 0.807058
+FineTuningLR 0.193960
+Epoch 24 | Batch 40/100 | Loss 2.304602
+InnerLR 0.806049
+FineTuningLR 0.194970
+Epoch 24 | Batch 50/100 | Loss 2.305397
+InnerLR 0.805371
+FineTuningLR 0.195647
+Epoch 24 | Batch 60/100 | Loss 2.324410
+InnerLR 0.804349
+FineTuningLR 0.196670
+Epoch 24 | Batch 70/100 | Loss 2.369165
+InnerLR 0.803673
+FineTuningLR 0.197346
+Epoch 24 | Batch 80/100 | Loss 2.381804
+InnerLR 0.802665
+FineTuningLR 0.198354
+Epoch 24 | Batch 90/100 | Loss 2.387494
+InnerLR 0.801994
+FineTuningLR 0.199026
+100 Accuracy = 30.12% +- 1.56%
+Epoch 24: 30.12
+Epoch 25 | Batch 0/100 | Loss 2.816051
+InnerLR 0.800986
+FineTuningLR 0.200033
+Epoch 25 | Batch 10/100 | Loss 2.749201
+InnerLR 0.800318
+FineTuningLR 0.200701
+Epoch 25 | Batch 20/100 | Loss 2.611226
+InnerLR 0.799322
+FineTuningLR 0.201698
+Epoch 25 | Batch 30/100 | Loss 2.466771
+InnerLR 0.798653
+FineTuningLR 0.202367
+Epoch 25 | Batch 40/100 | Loss 2.429818
+InnerLR 0.797643
+FineTuningLR 0.203378
+Epoch 25 | Batch 50/100 | Loss 2.390466
+InnerLR 0.796967
+FineTuningLR 0.204053
+Epoch 25 | Batch 60/100 | Loss 2.389621
+InnerLR 0.795949
+FineTuningLR 0.205071
+Epoch 25 | Batch 70/100 | Loss 2.386140
+InnerLR 0.795268
+FineTuningLR 0.205753
+Epoch 25 | Batch 80/100 | Loss 2.389198
+InnerLR 0.794248
+FineTuningLR 0.206772
+Epoch 25 | Batch 90/100 | Loss 2.390555
+InnerLR 0.793569
+FineTuningLR 0.207452
+100 Accuracy = 30.64% +- 1.56%
+Epoch 25: 30.64
+Epoch 26 | Batch 0/100 | Loss 2.559334
+InnerLR 0.792546
+FineTuningLR 0.208475
+Epoch 26 | Batch 10/100 | Loss 2.040269
+InnerLR 0.791862
+FineTuningLR 0.209159
+Epoch 26 | Batch 20/100 | Loss 2.203405
+InnerLR 0.790833
+FineTuningLR 0.210188
+Epoch 26 | Batch 30/100 | Loss 2.348664
+InnerLR 0.790151
+FineTuningLR 0.210870
+Epoch 26 | Batch 40/100 | Loss 2.385963
+InnerLR 0.789143
+FineTuningLR 0.211844
+Epoch 26 | Batch 50/100 | Loss 2.401053
+InnerLR 0.788472
+FineTuningLR 0.212324
+Epoch 26 | Batch 60/100 | Loss 2.426966
+InnerLR 0.787467
+FineTuningLR 0.213109
+Epoch 26 | Batch 70/100 | Loss 2.428792
+InnerLR 0.786800
+FineTuningLR 0.213664
+Epoch 26 | Batch 80/100 | Loss 2.422075
+InnerLR 0.785799
+FineTuningLR 0.214536
+Epoch 26 | Batch 90/100 | Loss 2.399657
+InnerLR 0.785123
+FineTuningLR 0.215146
+100 Accuracy = 30.47% +- 1.46%
+Epoch 26: 30.47
+Epoch 27 | Batch 0/100 | Loss 2.802616
+InnerLR 0.784104
+FineTuningLR 0.216090
+Epoch 27 | Batch 10/100 | Loss 2.527128
+InnerLR 0.783431
+FineTuningLR 0.216725
+Epoch 27 | Batch 20/100 | Loss 2.503320
+InnerLR 0.782416
+FineTuningLR 0.217695
+Epoch 27 | Batch 30/100 | Loss 2.478737
+InnerLR 0.781742
+FineTuningLR 0.218347
+Epoch 27 | Batch 40/100 | Loss 2.432849
+InnerLR 0.780732
+FineTuningLR 0.219332
+Epoch 27 | Batch 50/100 | Loss 2.435628
+InnerLR 0.780056
+FineTuningLR 0.219995
+Epoch 27 | Batch 60/100 | Loss 2.419203
+InnerLR 0.779041
+FineTuningLR 0.220996
+Epoch 27 | Batch 70/100 | Loss 2.408567
+InnerLR 0.778359
+FineTuningLR 0.221670
+Epoch 27 | Batch 80/100 | Loss 2.392779
+InnerLR 0.777340
+FineTuningLR 0.222681
+Epoch 27 | Batch 90/100 | Loss 2.400294
+InnerLR 0.776665
+FineTuningLR 0.223352
+100 Accuracy = 31.48% +- 1.70%
+Epoch 27: 31.48
+best model! save...
+Epoch 28 | Batch 0/100 | Loss 1.954675
+InnerLR 0.775659
+FineTuningLR 0.224353
+Epoch 28 | Batch 10/100 | Loss 2.305627
+InnerLR 0.774982
+FineTuningLR 0.225029
+Epoch 28 | Batch 20/100 | Loss 2.329721
+InnerLR 0.773961
+FineTuningLR 0.226048
+Epoch 28 | Batch 30/100 | Loss 2.281764
+InnerLR 0.773275
+FineTuningLR 0.226733
+Epoch 28 | Batch 40/100 | Loss 2.298341
+InnerLR 0.772244
+FineTuningLR 0.227720
+Epoch 28 | Batch 50/100 | Loss 2.317519
+InnerLR 0.771556
+FineTuningLR 0.228332
+Epoch 28 | Batch 60/100 | Loss 2.282684
+InnerLR 0.770523
+FineTuningLR 0.229279
+Epoch 28 | Batch 70/100 | Loss 2.297990
+InnerLR 0.769830
+FineTuningLR 0.229929
+Epoch 28 | Batch 80/100 | Loss 2.304146
+InnerLR 0.768792
+FineTuningLR 0.230842
+Epoch 28 | Batch 90/100 | Loss 2.296177
+InnerLR 0.768099
+FineTuningLR 0.231450
+100 Accuracy = 30.65% +- 1.60%
+Epoch 28: 30.65
+Epoch 29 | Batch 0/100 | Loss 2.777619
+InnerLR 0.767063
+FineTuningLR 0.232316
+Epoch 29 | Batch 10/100 | Loss 2.463502
+InnerLR 0.766374
+FineTuningLR 0.232833
+Epoch 29 | Batch 20/100 | Loss 2.420625
+InnerLR 0.765349
+FineTuningLR 0.233661
+Epoch 29 | Batch 30/100 | Loss 2.313065
+InnerLR 0.764667
+FineTuningLR 0.234242
+Epoch 29 | Batch 40/100 | Loss 2.267136
+InnerLR 0.763635
+FineTuningLR 0.235159
+Epoch 29 | Batch 50/100 | Loss 2.281392
+InnerLR 0.762950
+FineTuningLR 0.235786
+Epoch 29 | Batch 60/100 | Loss 2.296306
+InnerLR 0.761927
+FineTuningLR 0.236742
+Epoch 29 | Batch 70/100 | Loss 2.297807
+InnerLR 0.761246
+FineTuningLR 0.237390
+Epoch 29 | Batch 80/100 | Loss 2.297217
+InnerLR 0.760220
+FineTuningLR 0.238183
+Epoch 29 | Batch 90/100 | Loss 2.303580
+InnerLR 0.759540
+FineTuningLR 0.238575
+100 Accuracy = 30.07% +- 1.39%
+Epoch 29: 30.07
+Epoch 30 | Batch 0/100 | Loss 1.515900
+InnerLR 0.758520
+FineTuningLR 0.239264
+Epoch 30 | Batch 10/100 | Loss 2.228373
+InnerLR 0.757837
+FineTuningLR 0.239779
+Epoch 30 | Batch 20/100 | Loss 2.286144
+InnerLR 0.756809
+FineTuningLR 0.240613
+Epoch 30 | Batch 30/100 | Loss 2.283460
+InnerLR 0.756128
+FineTuningLR 0.241195
+Epoch 30 | Batch 40/100 | Loss 2.285586
+InnerLR 0.755096
+FineTuningLR 0.242115
+Epoch 30 | Batch 50/100 | Loss 2.261636
+InnerLR 0.754407
+FineTuningLR 0.242748
+Epoch 30 | Batch 60/100 | Loss 2.246545
+InnerLR 0.753375
+FineTuningLR 0.243716
+Epoch 30 | Batch 70/100 | Loss 2.235147
+InnerLR 0.752686
+FineTuningLR 0.244372
+Epoch 30 | Batch 80/100 | Loss 2.253970
+InnerLR 0.751657
+FineTuningLR 0.245365
+Epoch 30 | Batch 90/100 | Loss 2.240318
+InnerLR 0.750970
+FineTuningLR 0.246035
+100 Accuracy = 31.29% +- 1.56%
+Epoch 30: 31.29
+Epoch 31 | Batch 0/100 | Loss 2.560305
+InnerLR 0.749941
+FineTuningLR 0.247044
+Epoch 31 | Batch 10/100 | Loss 2.235397
+InnerLR 0.749257
+FineTuningLR 0.247718
+Epoch 31 | Batch 20/100 | Loss 2.153774
+InnerLR 0.748227
+FineTuningLR 0.248738
+Epoch 31 | Batch 30/100 | Loss 2.170445
+InnerLR 0.747545
+FineTuningLR 0.249416
+Epoch 31 | Batch 40/100 | Loss 2.160834
+InnerLR 0.746526
+FineTuningLR 0.250431
+Epoch 31 | Batch 50/100 | Loss 2.165801
+InnerLR 0.745846
+FineTuningLR 0.251109
+Epoch 31 | Batch 60/100 | Loss 2.142487
+InnerLR 0.744817
+FineTuningLR 0.252138
+Epoch 31 | Batch 70/100 | Loss 2.144316
+InnerLR 0.744127
+FineTuningLR 0.252828
+Epoch 31 | Batch 80/100 | Loss 2.153134
+InnerLR 0.743088
+FineTuningLR 0.253868
+Epoch 31 | Batch 90/100 | Loss 2.154866
+InnerLR 0.742400
+FineTuningLR 0.254557
+100 Accuracy = 31.79% +- 1.52%
+Epoch 31: 31.79
+best model! save...
+Epoch 32 | Batch 0/100 | Loss 1.701466
+InnerLR 0.741363
+FineTuningLR 0.255524
+Epoch 32 | Batch 10/100 | Loss 2.266836
+InnerLR 0.740668
+FineTuningLR 0.255891
+Epoch 32 | Batch 20/100 | Loss 2.242126
+InnerLR 0.739620
+FineTuningLR 0.256331
+Epoch 32 | Batch 30/100 | Loss 2.211227
+InnerLR 0.738924
+FineTuningLR 0.256674
+Epoch 32 | Batch 40/100 | Loss 2.208978
+InnerLR 0.737880
+FineTuningLR 0.257257
+Epoch 32 | Batch 50/100 | Loss 2.199222
+InnerLR 0.737184
+FineTuningLR 0.257652
+Epoch 32 | Batch 60/100 | Loss 2.190354
+InnerLR 0.736138
+FineTuningLR 0.258327
+Epoch 32 | Batch 70/100 | Loss 2.211862
+InnerLR 0.735439
+FineTuningLR 0.258807
+Epoch 32 | Batch 80/100 | Loss 2.226941
+InnerLR 0.734394
+FineTuningLR 0.259601
+Epoch 32 | Batch 90/100 | Loss 2.214011
+InnerLR 0.733697
+FineTuningLR 0.260101
+100 Accuracy = 31.41% +- 1.52%
+Epoch 32: 31.41
+Epoch 33 | Batch 0/100 | Loss 1.858656
+InnerLR 0.732651
+FineTuningLR 0.260830
+Epoch 33 | Batch 10/100 | Loss 2.078498
+InnerLR 0.731955
+FineTuningLR 0.261297
+Epoch 33 | Batch 20/100 | Loss 2.077799
+InnerLR 0.730904
+FineTuningLR 0.261855
+Epoch 33 | Batch 30/100 | Loss 2.107131
+InnerLR 0.730200
+FineTuningLR 0.262268
+Epoch 33 | Batch 40/100 | Loss 2.079368
+InnerLR 0.729148
+FineTuningLR 0.262983
+Epoch 33 | Batch 50/100 | Loss 2.071031
+InnerLR 0.728447
+FineTuningLR 0.263382
+Epoch 33 | Batch 60/100 | Loss 2.110748
+InnerLR 0.727391
+FineTuningLR 0.263949
+Epoch 33 | Batch 70/100 | Loss 2.131556
+InnerLR 0.726695
+FineTuningLR 0.264354
+Epoch 33 | Batch 80/100 | Loss 2.150192
+InnerLR 0.725660
+FineTuningLR 0.265053
+Epoch 33 | Batch 90/100 | Loss 2.140238
+InnerLR 0.724968
+FineTuningLR 0.265575
+100 Accuracy = 31.13% +- 1.46%
+Epoch 33: 31.13
+Epoch 34 | Batch 0/100 | Loss 2.703750
+InnerLR 0.723925
+FineTuningLR 0.266194
+Epoch 34 | Batch 10/100 | Loss 2.198803
+InnerLR 0.723235
+FineTuningLR 0.266661
+Epoch 34 | Batch 20/100 | Loss 2.152163
+InnerLR 0.722198
+FineTuningLR 0.267441
+Epoch 34 | Batch 30/100 | Loss 2.190071
+InnerLR 0.721504
+FineTuningLR 0.267935
+Epoch 34 | Batch 40/100 | Loss 2.166805
+InnerLR 0.720463
+FineTuningLR 0.268658
+Epoch 34 | Batch 50/100 | Loss 2.169259
+InnerLR 0.719763
+FineTuningLR 0.269124
+Epoch 34 | Batch 60/100 | Loss 2.134913
+InnerLR 0.718719
+FineTuningLR 0.269803
+Epoch 34 | Batch 70/100 | Loss 2.137858
+InnerLR 0.718022
+FineTuningLR 0.270315
+Epoch 34 | Batch 80/100 | Loss 2.133879
+InnerLR 0.716980
+FineTuningLR 0.271008
+Epoch 34 | Batch 90/100 | Loss 2.147389
+InnerLR 0.716290
+FineTuningLR 0.271480
+100 Accuracy = 32.24% +- 1.54%
+Epoch 34: 32.24
+best model! save...
+Epoch 35 | Batch 0/100 | Loss 1.852573
+InnerLR 0.715237
+FineTuningLR 0.272283
+Epoch 35 | Batch 10/100 | Loss 2.110180
+InnerLR 0.714537
+FineTuningLR 0.272856
+Epoch 35 | Batch 20/100 | Loss 2.047316
+InnerLR 0.713487
+FineTuningLR 0.273629
+Epoch 35 | Batch 30/100 | Loss 2.078172
+InnerLR 0.712789
+FineTuningLR 0.274147
+Epoch 35 | Batch 40/100 | Loss 2.087912
+InnerLR 0.711747
+FineTuningLR 0.274982
+Epoch 35 | Batch 50/100 | Loss 2.045195
+InnerLR 0.711043
+FineTuningLR 0.275582
+Epoch 35 | Batch 60/100 | Loss 2.054640
+InnerLR 0.709984
+FineTuningLR 0.276472
+Epoch 35 | Batch 70/100 | Loss 2.066545
+InnerLR 0.709278
+FineTuningLR 0.276953
+Epoch 35 | Batch 80/100 | Loss 2.084220
+InnerLR 0.708218
+FineTuningLR 0.277756
+Epoch 35 | Batch 90/100 | Loss 2.106138
+InnerLR 0.707523
+FineTuningLR 0.278320
+100 Accuracy = 32.71% +- 1.56%
+Epoch 35: 32.71
+best model! save...
+Epoch 36 | Batch 0/100 | Loss 3.160033
+InnerLR 0.706482
+FineTuningLR 0.279212
+Epoch 36 | Batch 10/100 | Loss 2.151392
+InnerLR 0.705789
+FineTuningLR 0.279830
+Epoch 36 | Batch 20/100 | Loss 2.042948
+InnerLR 0.704730
+FineTuningLR 0.280804
+Epoch 36 | Batch 30/100 | Loss 2.020392
+InnerLR 0.704008
+FineTuningLR 0.281483
+Epoch 36 | Batch 40/100 | Loss 2.061990
+InnerLR 0.702933
+FineTuningLR 0.282511
+Epoch 36 | Batch 50/100 | Loss 2.073562
+InnerLR 0.702225
+FineTuningLR 0.283147
+Epoch 36 | Batch 60/100 | Loss 2.079352
+InnerLR 0.701162
+FineTuningLR 0.283995
+Epoch 36 | Batch 70/100 | Loss 2.074890
+InnerLR 0.700458
+FineTuningLR 0.284437
+Epoch 36 | Batch 80/100 | Loss 2.070209
+InnerLR 0.699398
+FineTuningLR 0.284961
+Epoch 36 | Batch 90/100 | Loss 2.054679
+InnerLR 0.698689
+FineTuningLR 0.285307
+100 Accuracy = 32.21% +- 1.65%
+Epoch 36: 32.21
+Epoch 37 | Batch 0/100 | Loss 2.109714
+InnerLR 0.697635
+FineTuningLR 0.285943
+Epoch 37 | Batch 10/100 | Loss 1.885326
+InnerLR 0.696934
+FineTuningLR 0.286433
+Epoch 37 | Batch 20/100 | Loss 2.022954
+InnerLR 0.695880
+FineTuningLR 0.286981
+Epoch 37 | Batch 30/100 | Loss 2.058560
+InnerLR 0.695176
+FineTuningLR 0.287346
+Epoch 37 | Batch 40/100 | Loss 1.997481
+InnerLR 0.694125
+FineTuningLR 0.287939
+Epoch 37 | Batch 50/100 | Loss 2.017349
+InnerLR 0.693424
+FineTuningLR 0.288325
+Epoch 37 | Batch 60/100 | Loss 2.029210
+InnerLR 0.692372
+FineTuningLR 0.289014
+Epoch 37 | Batch 70/100 | Loss 2.016658
+InnerLR 0.691660
+FineTuningLR 0.289542
+Epoch 37 | Batch 80/100 | Loss 2.030889
+InnerLR 0.690594
+FineTuningLR 0.290220
+Epoch 37 | Batch 90/100 | Loss 2.039105
+InnerLR 0.689887
+FineTuningLR 0.290557
+100 Accuracy = 33.39% +- 1.78%
+Epoch 37: 33.39
+best model! save...
+Epoch 38 | Batch 0/100 | Loss 1.500306
+InnerLR 0.688834
+FineTuningLR 0.291022
+Epoch 38 | Batch 10/100 | Loss 2.019834
+InnerLR 0.688127
+FineTuningLR 0.291424
+Epoch 38 | Batch 20/100 | Loss 2.078403
+InnerLR 0.687056
+FineTuningLR 0.291721
+Epoch 38 | Batch 30/100 | Loss 2.061634
+InnerLR 0.686334
+FineTuningLR 0.291697
+Epoch 38 | Batch 40/100 | Loss 2.051590
+InnerLR 0.685255
+FineTuningLR 0.291687
+Epoch 38 | Batch 50/100 | Loss 2.027644
+InnerLR 0.684538
+FineTuningLR 0.291809
+Epoch 38 | Batch 60/100 | Loss 2.007636
+InnerLR 0.683477
+FineTuningLR 0.291909
+Epoch 38 | Batch 70/100 | Loss 2.013457
+InnerLR 0.682762
+FineTuningLR 0.291922
+Epoch 38 | Batch 80/100 | Loss 1.992646
+InnerLR 0.681693
+FineTuningLR 0.292154
+Epoch 38 | Batch 90/100 | Loss 2.014768
+InnerLR 0.680988
+FineTuningLR 0.292434
+100 Accuracy = 31.87% +- 1.50%
+Epoch 38: 31.87
+Epoch 39 | Batch 0/100 | Loss 2.254912
+InnerLR 0.679931
+FineTuningLR 0.292799
+Epoch 39 | Batch 10/100 | Loss 2.099872
+InnerLR 0.679220
+FineTuningLR 0.292937
+Epoch 39 | Batch 20/100 | Loss 1.976605
+InnerLR 0.678150
+FineTuningLR 0.293251
+Epoch 39 | Batch 30/100 | Loss 1.959381
+InnerLR 0.677438
+FineTuningLR 0.293579
+Epoch 39 | Batch 40/100 | Loss 1.973433
+InnerLR 0.676366
+FineTuningLR 0.294210
+Epoch 39 | Batch 50/100 | Loss 1.952237
+InnerLR 0.675651
+FineTuningLR 0.294702
+Epoch 39 | Batch 60/100 | Loss 1.956152
+InnerLR 0.674567
+FineTuningLR 0.295327
+Epoch 39 | Batch 70/100 | Loss 1.963023
+InnerLR 0.673843
+FineTuningLR 0.295745
+Epoch 39 | Batch 80/100 | Loss 1.987689
+InnerLR 0.672767
+FineTuningLR 0.296178
+Epoch 39 | Batch 90/100 | Loss 1.987812
+InnerLR 0.672053
+FineTuningLR 0.296476
+100 Accuracy = 35.28% +- 1.68%
+Epoch 39: 35.28
+best model! save...
+Epoch 40 | Batch 0/100 | Loss 2.063078
+InnerLR 0.670972
+FineTuningLR 0.296847
+Epoch 40 | Batch 10/100 | Loss 2.122681
+InnerLR 0.670251
+FineTuningLR 0.297015
+Epoch 40 | Batch 20/100 | Loss 2.092064
+InnerLR 0.669171
+FineTuningLR 0.297460
+Epoch 40 | Batch 30/100 | Loss 2.024721
+InnerLR 0.668456
+FineTuningLR 0.297852
+Epoch 40 | Batch 40/100 | Loss 2.003073
+InnerLR 0.667376
+FineTuningLR 0.298491
+Epoch 40 | Batch 50/100 | Loss 2.025974
+InnerLR 0.666662
+FineTuningLR 0.298895
+Epoch 40 | Batch 60/100 | Loss 2.028264
+InnerLR 0.665588
+FineTuningLR 0.299341
+Epoch 40 | Batch 70/100 | Loss 2.031553
+InnerLR 0.664873
+FineTuningLR 0.299585
+Epoch 40 | Batch 80/100 | Loss 2.007883
+InnerLR 0.663793
+FineTuningLR 0.299870
+Epoch 40 | Batch 90/100 | Loss 2.003653
+InnerLR 0.663066
+FineTuningLR 0.300063
+100 Accuracy = 33.43% +- 1.55%
+Epoch 40: 33.43
+Epoch 41 | Batch 0/100 | Loss 1.645140
+InnerLR 0.661980
+FineTuningLR 0.300523
+Epoch 41 | Batch 10/100 | Loss 1.896342
+InnerLR 0.661247
+FineTuningLR 0.300939
+Epoch 41 | Batch 20/100 | Loss 1.899057
+InnerLR 0.660151
+FineTuningLR 0.301541
+Epoch 41 | Batch 30/100 | Loss 1.873633
+InnerLR 0.659413
+FineTuningLR 0.302029
+Epoch 41 | Batch 40/100 | Loss 1.916194
+InnerLR 0.658319
+FineTuningLR 0.302771
+Epoch 41 | Batch 50/100 | Loss 1.913075
+InnerLR 0.657595
+FineTuningLR 0.303237
+Epoch 41 | Batch 60/100 | Loss 1.918642
+InnerLR 0.656501
+FineTuningLR 0.303838
+Epoch 41 | Batch 70/100 | Loss 1.910433
+InnerLR 0.655769
+FineTuningLR 0.304304
+Epoch 41 | Batch 80/100 | Loss 1.910045
+InnerLR 0.654669
+FineTuningLR 0.305029
+Epoch 41 | Batch 90/100 | Loss 1.909090
+InnerLR 0.653946
+FineTuningLR 0.305549
+100 Accuracy = 33.97% +- 1.68%
+Epoch 41: 33.97
+Epoch 42 | Batch 0/100 | Loss 2.189842
+InnerLR 0.652854
+FineTuningLR 0.306216
+Epoch 42 | Batch 10/100 | Loss 1.980312
+InnerLR 0.652129
+FineTuningLR 0.306605
+Epoch 42 | Batch 20/100 | Loss 1.906637
+InnerLR 0.651039
+FineTuningLR 0.307237
+Epoch 42 | Batch 30/100 | Loss 1.888862
+InnerLR 0.650311
+FineTuningLR 0.307648
+Epoch 42 | Batch 40/100 | Loss 1.931589
+InnerLR 0.649228
+FineTuningLR 0.308167
+Epoch 42 | Batch 50/100 | Loss 1.959481
+InnerLR 0.648507
+FineTuningLR 0.308519
+Epoch 42 | Batch 60/100 | Loss 1.938896
+InnerLR 0.647429
+FineTuningLR 0.309125
+Epoch 42 | Batch 70/100 | Loss 1.960491
+InnerLR 0.646708
+FineTuningLR 0.309394
+Epoch 42 | Batch 80/100 | Loss 1.958931
+InnerLR 0.645622
+FineTuningLR 0.309600
+Epoch 42 | Batch 90/100 | Loss 1.964592
+InnerLR 0.644897
+FineTuningLR 0.309735
+100 Accuracy = 32.71% +- 1.74%
+Epoch 42: 32.71
+Epoch 43 | Batch 0/100 | Loss 1.411140
+InnerLR 0.643813
+FineTuningLR 0.309896
+Epoch 43 | Batch 10/100 | Loss 1.855517
+InnerLR 0.643076
+FineTuningLR 0.310167
+Epoch 43 | Batch 20/100 | Loss 1.844487
+InnerLR 0.641983
+FineTuningLR 0.310532
+Epoch 43 | Batch 30/100 | Loss 1.919181
+InnerLR 0.641260
+FineTuningLR 0.310812
+Epoch 43 | Batch 40/100 | Loss 1.900327
+InnerLR 0.640171
+FineTuningLR 0.311054
+Epoch 43 | Batch 50/100 | Loss 1.938110
+InnerLR 0.639456
+FineTuningLR 0.311211
+Epoch 43 | Batch 60/100 | Loss 1.925669
+InnerLR 0.638387
+FineTuningLR 0.311478
+Epoch 43 | Batch 70/100 | Loss 1.925770
+InnerLR 0.637671
+FineTuningLR 0.311621
+Epoch 43 | Batch 80/100 | Loss 1.939050
+InnerLR 0.636601
+FineTuningLR 0.311971
+Epoch 43 | Batch 90/100 | Loss 1.937757
+InnerLR 0.635892
+FineTuningLR 0.312295
+100 Accuracy = 34.73% +- 1.78%
+Epoch 43: 34.73
+Epoch 44 | Batch 0/100 | Loss 2.136118
+InnerLR 0.634830
+FineTuningLR 0.312719
+Epoch 44 | Batch 10/100 | Loss 2.082873
+InnerLR 0.634117
+FineTuningLR 0.312845
+Epoch 44 | Batch 20/100 | Loss 2.011634
+InnerLR 0.633051
+FineTuningLR 0.313063
+Epoch 44 | Batch 30/100 | Loss 1.998880
+InnerLR 0.632338
+FineTuningLR 0.313181
+Epoch 44 | Batch 40/100 | Loss 1.957621
+InnerLR 0.631263
+FineTuningLR 0.313399
+Epoch 44 | Batch 50/100 | Loss 1.902326
+InnerLR 0.630530
+FineTuningLR 0.313604
+Epoch 44 | Batch 60/100 | Loss 1.908487
+InnerLR 0.629427
+FineTuningLR 0.313754
+Epoch 44 | Batch 70/100 | Loss 1.897786
+InnerLR 0.628692
+FineTuningLR 0.313885
+Epoch 44 | Batch 80/100 | Loss 1.886685
+InnerLR 0.627582
+FineTuningLR 0.314204
+Epoch 44 | Batch 90/100 | Loss 1.883597
+InnerLR 0.626834
+FineTuningLR 0.314553
+100 Accuracy = 34.03% +- 1.67%
+Epoch 44: 34.03
+Epoch 45 | Batch 0/100 | Loss 1.541922
+InnerLR 0.625721
+FineTuningLR 0.315108
+Epoch 45 | Batch 10/100 | Loss 1.756722
+InnerLR 0.624970
+FineTuningLR 0.315237
+Epoch 45 | Batch 20/100 | Loss 1.774181
+InnerLR 0.623850
+FineTuningLR 0.315538
+Epoch 45 | Batch 30/100 | Loss 1.830097
+InnerLR 0.623106
+FineTuningLR 0.315736
+Epoch 45 | Batch 40/100 | Loss 1.831826
+InnerLR 0.622002
+FineTuningLR 0.316053
+Epoch 45 | Batch 50/100 | Loss 1.866652
+InnerLR 0.621262
+FineTuningLR 0.316168
+Epoch 45 | Batch 60/100 | Loss 1.863526
+InnerLR 0.620159
+FineTuningLR 0.316421
+Epoch 45 | Batch 70/100 | Loss 1.859068
+InnerLR 0.619424
+FineTuningLR 0.316501
+Epoch 45 | Batch 80/100 | Loss 1.857380
+InnerLR 0.618310
+FineTuningLR 0.316769
+Epoch 45 | Batch 90/100 | Loss 1.869021
+InnerLR 0.617579
+FineTuningLR 0.317059
+100 Accuracy = 34.47% +- 1.69%
+Epoch 45: 34.47
+Epoch 46 | Batch 0/100 | Loss 2.343364
+InnerLR 0.616480
+FineTuningLR 0.317493
+Epoch 46 | Batch 10/100 | Loss 1.854437
+InnerLR 0.615753
+FineTuningLR 0.317711
+Epoch 46 | Batch 20/100 | Loss 1.856752
+InnerLR 0.614666
+FineTuningLR 0.318077
+Epoch 46 | Batch 30/100 | Loss 1.846028
+InnerLR 0.613935
+FineTuningLR 0.318254
+Epoch 46 | Batch 40/100 | Loss 1.841645
+InnerLR 0.612841
+FineTuningLR 0.318715
+Epoch 46 | Batch 50/100 | Loss 1.870015
+InnerLR 0.612114
+FineTuningLR 0.319124
+Epoch 46 | Batch 60/100 | Loss 1.878240
+InnerLR 0.611021
+FineTuningLR 0.319432
+Epoch 46 | Batch 70/100 | Loss 1.884063
+InnerLR 0.610301
+FineTuningLR 0.319493
+Epoch 46 | Batch 80/100 | Loss 1.893946
+InnerLR 0.609231
+FineTuningLR 0.319693
+Epoch 46 | Batch 90/100 | Loss 1.884067
+InnerLR 0.608513
+FineTuningLR 0.319741
+100 Accuracy = 34.41% +- 1.73%
+Epoch 46: 34.41
+Epoch 47 | Batch 0/100 | Loss 2.100676
+InnerLR 0.607426
+FineTuningLR 0.319823
+Epoch 47 | Batch 10/100 | Loss 1.817299
+InnerLR 0.606690
+FineTuningLR 0.319914
+Epoch 47 | Batch 20/100 | Loss 1.909818
+InnerLR 0.605592
+FineTuningLR 0.320001
+Epoch 47 | Batch 30/100 | Loss 1.912029
+InnerLR 0.604864
+FineTuningLR 0.319991
+Epoch 47 | Batch 40/100 | Loss 1.857763
+InnerLR 0.603747
+FineTuningLR 0.320063
+Epoch 47 | Batch 50/100 | Loss 1.848770
+InnerLR 0.602994
+FineTuningLR 0.320158
+Epoch 47 | Batch 60/100 | Loss 1.828178
+InnerLR 0.601872
+FineTuningLR 0.320084
+Epoch 47 | Batch 70/100 | Loss 1.839896
+InnerLR 0.601128
+FineTuningLR 0.320171
+Epoch 47 | Batch 80/100 | Loss 1.861171
+InnerLR 0.600026
+FineTuningLR 0.320190
+Epoch 47 | Batch 90/100 | Loss 1.857152
+InnerLR 0.599286
+FineTuningLR 0.320310
+100 Accuracy = 33.81% +- 1.76%
+Epoch 47: 33.81
+Epoch 48 | Batch 0/100 | Loss 1.578361
+InnerLR 0.598171
+FineTuningLR 0.320348
+Epoch 48 | Batch 10/100 | Loss 1.720782
+InnerLR 0.597421
+FineTuningLR 0.320335
+Epoch 48 | Batch 20/100 | Loss 1.758655
+InnerLR 0.596300
+FineTuningLR 0.320406
+Epoch 48 | Batch 30/100 | Loss 1.756474
+InnerLR 0.595552
+FineTuningLR 0.320459
+Epoch 48 | Batch 40/100 | Loss 1.788940
+InnerLR 0.594432
+FineTuningLR 0.320444
+Epoch 48 | Batch 50/100 | Loss 1.801463
+InnerLR 0.593683
+FineTuningLR 0.320529
+Epoch 48 | Batch 60/100 | Loss 1.841895
+InnerLR 0.592575
+FineTuningLR 0.320749
+Epoch 48 | Batch 70/100 | Loss 1.800191
+InnerLR 0.591840
+FineTuningLR 0.320952
+Epoch 48 | Batch 80/100 | Loss 1.789552
+InnerLR 0.590727
+FineTuningLR 0.321365
+Epoch 48 | Batch 90/100 | Loss 1.783443
+InnerLR 0.589986
+FineTuningLR 0.321526
+100 Accuracy = 35.09% +- 1.60%
+Epoch 48: 35.09
+Epoch 49 | Batch 0/100 | Loss 1.518111
+InnerLR 0.588879
+FineTuningLR 0.321796
+Epoch 49 | Batch 10/100 | Loss 1.837164
+InnerLR 0.588143
+FineTuningLR 0.321940
+Epoch 49 | Batch 20/100 | Loss 1.852033
+InnerLR 0.587046
+FineTuningLR 0.322023
+Epoch 49 | Batch 30/100 | Loss 1.849842
+InnerLR 0.586300
+FineTuningLR 0.322069
+Epoch 49 | Batch 40/100 | Loss 1.847573
+InnerLR 0.585178
+FineTuningLR 0.322064
+Epoch 49 | Batch 50/100 | Loss 1.856062
+InnerLR 0.584426
+FineTuningLR 0.321965
+Epoch 49 | Batch 60/100 | Loss 1.849432
+InnerLR 0.583309
+FineTuningLR 0.321863
+Epoch 49 | Batch 70/100 | Loss 1.832775
+InnerLR 0.582566
+FineTuningLR 0.321805
+Epoch 49 | Batch 80/100 | Loss 1.836187
+InnerLR 0.581450
+FineTuningLR 0.321640
+Epoch 49 | Batch 90/100 | Loss 1.842310
+InnerLR 0.580713
+FineTuningLR 0.321583
+100 Accuracy = 33.67% +- 1.77%
+Epoch 49: 33.67
+Epoch 50 | Batch 0/100 | Loss 1.802583
+InnerLR 0.579615
+FineTuningLR 0.321303
+Epoch 50 | Batch 10/100 | Loss 1.701382
+InnerLR 0.578873
+FineTuningLR 0.321262
+Epoch 50 | Batch 20/100 | Loss 1.772963
+InnerLR 0.577769
+FineTuningLR 0.321390
+Epoch 50 | Batch 30/100 | Loss 1.790525
+InnerLR 0.577031
+FineTuningLR 0.321317
+Epoch 50 | Batch 40/100 | Loss 1.776194
+InnerLR 0.575910
+FineTuningLR 0.321261
+Epoch 50 | Batch 50/100 | Loss 1.787643
+InnerLR 0.575156
+FineTuningLR 0.321150
+Epoch 50 | Batch 60/100 | Loss 1.787274
+InnerLR 0.574032
+FineTuningLR 0.320939
+Epoch 50 | Batch 70/100 | Loss 1.767759
+InnerLR 0.573281
+FineTuningLR 0.320879
+Epoch 50 | Batch 80/100 | Loss 1.768091
+InnerLR 0.572158
+FineTuningLR 0.320866
+Epoch 50 | Batch 90/100 | Loss 1.785758
+InnerLR 0.571402
+FineTuningLR 0.320892
+100 Accuracy = 34.87% +- 1.59%
+Epoch 50: 34.87
+Epoch 51 | Batch 0/100 | Loss 2.154803
+InnerLR 0.570267
+FineTuningLR 0.320906
+Epoch 51 | Batch 10/100 | Loss 1.714981
+InnerLR 0.569515
+FineTuningLR 0.321000
+Epoch 51 | Batch 20/100 | Loss 1.742415
+InnerLR 0.568388
+FineTuningLR 0.321338
+Epoch 51 | Batch 30/100 | Loss 1.704245
+InnerLR 0.567636
+FineTuningLR 0.321652
+Epoch 51 | Batch 40/100 | Loss 1.699423
+InnerLR 0.566508
+FineTuningLR 0.322089
+Epoch 51 | Batch 50/100 | Loss 1.723488
+InnerLR 0.565768
+FineTuningLR 0.322421
+Epoch 51 | Batch 60/100 | Loss 1.751355
+InnerLR 0.564653
+FineTuningLR 0.322717
+Epoch 51 | Batch 70/100 | Loss 1.744765
+InnerLR 0.563905
+FineTuningLR 0.322926
+Epoch 51 | Batch 80/100 | Loss 1.745375
+InnerLR 0.562771
+FineTuningLR 0.322943
+Epoch 51 | Batch 90/100 | Loss 1.746128
+InnerLR 0.562013
+FineTuningLR 0.322891
+100 Accuracy = 35.77% +- 1.77%
+Epoch 51: 35.77
+best model! save...
+Epoch 52 | Batch 0/100 | Loss 2.280753
+InnerLR 0.560891
+FineTuningLR 0.322920
+Epoch 52 | Batch 10/100 | Loss 1.747462
+InnerLR 0.560145
+FineTuningLR 0.322883
+Epoch 52 | Batch 20/100 | Loss 1.751559
+InnerLR 0.559035
+FineTuningLR 0.323100
+Epoch 52 | Batch 30/100 | Loss 1.737360
+InnerLR 0.558294
+FineTuningLR 0.323239
+Epoch 52 | Batch 40/100 | Loss 1.732971
+InnerLR 0.557185
+FineTuningLR 0.323572
+Epoch 52 | Batch 50/100 | Loss 1.743262
+InnerLR 0.556439
+FineTuningLR 0.323742
+Epoch 52 | Batch 60/100 | Loss 1.746287
+InnerLR 0.555310
+FineTuningLR 0.323899
+Epoch 52 | Batch 70/100 | Loss 1.752662
+InnerLR 0.554564
+FineTuningLR 0.323887
+Epoch 52 | Batch 80/100 | Loss 1.757797
+InnerLR 0.553446
+FineTuningLR 0.323766
+Epoch 52 | Batch 90/100 | Loss 1.754727
+InnerLR 0.552693
+FineTuningLR 0.323666
+100 Accuracy = 35.37% +- 1.89%
+Epoch 52: 35.37
+Epoch 53 | Batch 0/100 | Loss 2.030190
+InnerLR 0.551570
+FineTuningLR 0.323478
+Epoch 53 | Batch 10/100 | Loss 1.885046
+InnerLR 0.550814
+FineTuningLR 0.323192
+Epoch 53 | Batch 20/100 | Loss 1.822423
+InnerLR 0.549686
+FineTuningLR 0.322760
+Epoch 53 | Batch 30/100 | Loss 1.817991
+InnerLR 0.548930
+FineTuningLR 0.322542
+Epoch 53 | Batch 40/100 | Loss 1.803538
+InnerLR 0.547794
+FineTuningLR 0.322293
+Epoch 53 | Batch 50/100 | Loss 1.804425
+InnerLR 0.547036
+FineTuningLR 0.322077
+Epoch 53 | Batch 60/100 | Loss 1.783552
+InnerLR 0.545913
+FineTuningLR 0.321766
+Epoch 53 | Batch 70/100 | Loss 1.773618
+InnerLR 0.545164
+FineTuningLR 0.321540
+Epoch 53 | Batch 80/100 | Loss 1.760597
+InnerLR 0.544024
+FineTuningLR 0.321274
+Epoch 53 | Batch 90/100 | Loss 1.743937
+InnerLR 0.543265
+FineTuningLR 0.321229
+100 Accuracy = 35.83% +- 1.73%
+Epoch 53: 35.83
+best model! save...
+Epoch 54 | Batch 0/100 | Loss 1.948587
+InnerLR 0.542133
+FineTuningLR 0.321443
+Epoch 54 | Batch 10/100 | Loss 1.808978
+InnerLR 0.541387
+FineTuningLR 0.321605
+Epoch 54 | Batch 20/100 | Loss 1.788822
+InnerLR 0.540264
+FineTuningLR 0.321872
+Epoch 54 | Batch 30/100 | Loss 1.776110
+InnerLR 0.539510
+FineTuningLR 0.322013
+Epoch 54 | Batch 40/100 | Loss 1.781200
+InnerLR 0.538380
+FineTuningLR 0.322252
+Epoch 54 | Batch 50/100 | Loss 1.778484
+InnerLR 0.537635
+FineTuningLR 0.322311
+Epoch 54 | Batch 60/100 | Loss 1.770512
+InnerLR 0.536503
+FineTuningLR 0.322210
+Epoch 54 | Batch 70/100 | Loss 1.757837
+InnerLR 0.535738
+FineTuningLR 0.322047
+Epoch 54 | Batch 80/100 | Loss 1.762217
+InnerLR 0.534598
+FineTuningLR 0.322045
+Epoch 54 | Batch 90/100 | Loss 1.773157
+InnerLR 0.533836
+FineTuningLR 0.321900
+100 Accuracy = 36.95% +- 1.74%
+Epoch 54: 36.95
+best model! save...
+Epoch 55 | Batch 0/100 | Loss 1.341964
+InnerLR 0.532697
+FineTuningLR 0.321589
+Epoch 55 | Batch 10/100 | Loss 1.779911
+InnerLR 0.531942
+FineTuningLR 0.321478
+Epoch 55 | Batch 20/100 | Loss 1.737261
+InnerLR 0.530822
+FineTuningLR 0.321310
+Epoch 55 | Batch 30/100 | Loss 1.714403
+InnerLR 0.530068
+FineTuningLR 0.321376
+Epoch 55 | Batch 40/100 | Loss 1.753708
+InnerLR 0.528953
+FineTuningLR 0.321418
+Epoch 55 | Batch 50/100 | Loss 1.750267
+InnerLR 0.528204
+FineTuningLR 0.321369
+Epoch 55 | Batch 60/100 | Loss 1.762960
+InnerLR 0.527079
+FineTuningLR 0.321502
+Epoch 55 | Batch 70/100 | Loss 1.775281
+InnerLR 0.526332
+FineTuningLR 0.321436
+Epoch 55 | Batch 80/100 | Loss 1.777704
+InnerLR 0.525202
+FineTuningLR 0.321083
+Epoch 55 | Batch 90/100 | Loss 1.774978
+InnerLR 0.524448
+FineTuningLR 0.320718
+100 Accuracy = 36.52% +- 1.79%
+Epoch 55: 36.52
+Epoch 56 | Batch 0/100 | Loss 1.694108
+InnerLR 0.523296
+FineTuningLR 0.320313
+Epoch 56 | Batch 10/100 | Loss 1.720167
+InnerLR 0.522531
+FineTuningLR 0.320089
+Epoch 56 | Batch 20/100 | Loss 1.696759
+InnerLR 0.521386
+FineTuningLR 0.320066
+Epoch 56 | Batch 30/100 | Loss 1.682534
+InnerLR 0.520627
+FineTuningLR 0.320129
+Epoch 56 | Batch 40/100 | Loss 1.695855
+InnerLR 0.519488
+FineTuningLR 0.320173
+Epoch 56 | Batch 50/100 | Loss 1.699617
+InnerLR 0.518729
+FineTuningLR 0.320184
+Epoch 56 | Batch 60/100 | Loss 1.686498
+InnerLR 0.517595
+FineTuningLR 0.320367
+Epoch 56 | Batch 70/100 | Loss 1.686901
+InnerLR 0.516838
+FineTuningLR 0.320461
+Epoch 56 | Batch 80/100 | Loss 1.696487
+InnerLR 0.515694
+FineTuningLR 0.320344
+Epoch 56 | Batch 90/100 | Loss 1.709988
+InnerLR 0.514931
+FineTuningLR 0.320113
+100 Accuracy = 36.08% +- 1.86%
+Epoch 56: 36.08
+Epoch 57 | Batch 0/100 | Loss 2.065958
+InnerLR 0.513802
+FineTuningLR 0.319644
+Epoch 57 | Batch 10/100 | Loss 1.922259
+InnerLR 0.513048
+FineTuningLR 0.319231
+Epoch 57 | Batch 20/100 | Loss 1.852085
+InnerLR 0.511905
+FineTuningLR 0.318470
+Epoch 57 | Batch 30/100 | Loss 1.794059
+InnerLR 0.511145
+FineTuningLR 0.318000
+Epoch 57 | Batch 40/100 | Loss 1.789948
+InnerLR 0.510002
+FineTuningLR 0.317655
+Epoch 57 | Batch 50/100 | Loss 1.771571
+InnerLR 0.509237
+FineTuningLR 0.317335
+Epoch 57 | Batch 60/100 | Loss 1.770730
+InnerLR 0.508090
+FineTuningLR 0.316922
+Epoch 57 | Batch 70/100 | Loss 1.757858
+InnerLR 0.507330
+FineTuningLR 0.316532
+Epoch 57 | Batch 80/100 | Loss 1.737564
+InnerLR 0.506172
+FineTuningLR 0.316042
+Epoch 57 | Batch 90/100 | Loss 1.733899
+InnerLR 0.505400
+FineTuningLR 0.315698
+100 Accuracy = 35.16% +- 1.60%
+Epoch 57: 35.16
+Epoch 58 | Batch 0/100 | Loss 1.377641
+InnerLR 0.504226
+FineTuningLR 0.315489
+Epoch 58 | Batch 10/100 | Loss 1.667264
+InnerLR 0.503445
+FineTuningLR 0.315571
+Epoch 58 | Batch 20/100 | Loss 1.724574
+InnerLR 0.502262
+FineTuningLR 0.315480
+Epoch 58 | Batch 30/100 | Loss 1.715703
+InnerLR 0.501486
+FineTuningLR 0.315324
+Epoch 58 | Batch 40/100 | Loss 1.735387
+InnerLR 0.500336
+FineTuningLR 0.315276
+Epoch 58 | Batch 50/100 | Loss 1.723656
+InnerLR 0.499580
+FineTuningLR 0.315167
+Epoch 58 | Batch 60/100 | Loss 1.742555
+InnerLR 0.498451
+FineTuningLR 0.315086
+Epoch 58 | Batch 70/100 | Loss 1.757289
+InnerLR 0.497692
+FineTuningLR 0.314860
+Epoch 58 | Batch 80/100 | Loss 1.743300
+InnerLR 0.496550
+FineTuningLR 0.314564
+Epoch 58 | Batch 90/100 | Loss 1.738351
+InnerLR 0.495791
+FineTuningLR 0.314538
+100 Accuracy = 36.27% +- 1.72%
+Epoch 58: 36.27
+Epoch 59 | Batch 0/100 | Loss 1.278270
+InnerLR 0.494636
+FineTuningLR 0.314590
+Epoch 59 | Batch 10/100 | Loss 1.559298
+InnerLR 0.493859
+FineTuningLR 0.314757
+Epoch 59 | Batch 20/100 | Loss 1.583221
+InnerLR 0.492687
+FineTuningLR 0.315004
+Epoch 59 | Batch 30/100 | Loss 1.643728
+InnerLR 0.491908
+FineTuningLR 0.315017
+Epoch 59 | Batch 40/100 | Loss 1.634726
+InnerLR 0.490748
+FineTuningLR 0.314950
+Epoch 59 | Batch 50/100 | Loss 1.669958
+InnerLR 0.489978
+FineTuningLR 0.314967
+Epoch 59 | Batch 60/100 | Loss 1.692374
+InnerLR 0.488834
+FineTuningLR 0.314920
+Epoch 59 | Batch 70/100 | Loss 1.683814
+InnerLR 0.488070
+FineTuningLR 0.314949
+Epoch 59 | Batch 80/100 | Loss 1.690456
+InnerLR 0.486926
+FineTuningLR 0.314810
+Epoch 59 | Batch 90/100 | Loss 1.676950
+InnerLR 0.486164
+FineTuningLR 0.314782
+/home/boris_zhestyankin/epfl-dl-in-biomed-project/datasets/cell/utils.py:66: ImplicitModificationWarning: Trying to modify attribute `.obs` of view, initializing view as actual.
+  self.adata.obs['label'] = pd.Categorical(values=truth_labels)
+/home/boris_zhestyankin/miniconda3/envs/fewshotbench/lib/python3.10/site-packages/scanpy/preprocessing/_simple.py:373: UserWarning: Received a view of an AnnData. Making a copy.
+  view_to_actual(adata)
+/home/boris_zhestyankin/miniconda3/envs/fewshotbench/lib/python3.10/site-packages/torch/utils/data/dataloader.py:560: UserWarning: This DataLoader will create 4 worker processes in total. Our suggested max number of worker in current system is 1, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  warnings.warn(_create_warning_msg(
+100 Accuracy = 38.07% +- 1.84%
+Epoch 59: 38.07
+best model! save...
+Checkpoint directory: checkpoints/dataset_tabula_muris_n_shot_1_lr_0.0003_latent_space_dim_8_weight_decay_1e-06_num_adaptation_steps_10/tabula_muris/leo_FCNet
+Using checkpoint dir: checkpoints/dataset_tabula_muris_n_shot_1_lr_0.0003_latent_space_dim_8_weight_decay_1e-06_num_adaptation_steps_10/tabula_muris/leo_FCNet/20231209_030605
+/home/boris_zhestyankin/epfl-dl-in-biomed-project/datasets/cell/utils.py:66: ImplicitModificationWarning: Trying to modify attribute `.obs` of view, initializing view as actual.
+  self.adata.obs['label'] = pd.Categorical(values=truth_labels)
+/home/boris_zhestyankin/miniconda3/envs/fewshotbench/lib/python3.10/site-packages/scanpy/preprocessing/_simple.py:373: UserWarning: Received a view of an AnnData. Making a copy.
+  view_to_actual(adata)
+/home/boris_zhestyankin/miniconda3/envs/fewshotbench/lib/python3.10/site-packages/torch/utils/data/dataloader.py:560: UserWarning: This DataLoader will create 4 worker processes in total. Our suggested max number of worker in current system is 1, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  warnings.warn(_create_warning_msg(
+600 Accuracy = 40.20% +- 0.81%
+Using checkpoint dir: checkpoints/dataset_tabula_muris_n_shot_1_lr_0.0003_latent_space_dim_8_weight_decay_1e-06_num_adaptation_steps_10/tabula_muris/leo_FCNet/20231209_030605
+/home/boris_zhestyankin/epfl-dl-in-biomed-project/datasets/cell/utils.py:66: ImplicitModificationWarning: Trying to modify attribute `.obs` of view, initializing view as actual.
+  self.adata.obs['label'] = pd.Categorical(values=truth_labels)
+/home/boris_zhestyankin/miniconda3/envs/fewshotbench/lib/python3.10/site-packages/scanpy/preprocessing/_simple.py:373: UserWarning: Received a view of an AnnData. Making a copy.
+  view_to_actual(adata)
+/home/boris_zhestyankin/miniconda3/envs/fewshotbench/lib/python3.10/site-packages/torch/utils/data/dataloader.py:560: UserWarning: This DataLoader will create 4 worker processes in total. Our suggested max number of worker in current system is 1, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  warnings.warn(_create_warning_msg(
+600 Accuracy = 37.06% +- 0.72%
+Using checkpoint dir: checkpoints/dataset_tabula_muris_n_shot_1_lr_0.0003_latent_space_dim_8_weight_decay_1e-06_num_adaptation_steps_10/tabula_muris/leo_FCNet/20231209_030605
+600 Accuracy = 37.17% +- 0.75%
+Results logged to ./checkpoints/dataset_tabula_muris_n_shot_1_lr_0.0003_latent_space_dim_8_weight_decay_1e-06_num_adaptation_steps_10/results.txt
++-------+--------------------+-------------------+
+| split |      acc_mean      |      acc_std      |
++-------+--------------------+-------------------+
+| train | 40.19777777777778  | 10.07641887199766 |
+|  val  |       37.06        | 9.016164085397671 |
+|  test | 37.166666666666664 | 9.396867090212096 |
++-------+--------------------+-------------------+
