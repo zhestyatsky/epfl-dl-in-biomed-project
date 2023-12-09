@@ -17,7 +17,7 @@ hyperparameters = {
 run_script_path = './run.py'
 
 # Output directory
-output_dir = 'experiment/'
+output_dir = 'experiments/'
 
 # Create the output directory if it doesn't exist
 os.makedirs(output_dir, exist_ok=True)
