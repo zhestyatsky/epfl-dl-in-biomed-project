@@ -9,12 +9,26 @@ from methods.meta_template import MetaTemplate
 
 
 class NormalDistribution(nn.Module):
+    """
+    A module for handling Gaussian distributions in the context of LEO algorithm.
+
+    This class provides functionalities for generating output based on Gaussian
+    distributions and calculating the Kullback–Leibler divergence (how one
+    probability distribution P is different from another reference probability).
+    """
     def __init__(self, output_dim):
+        """
+        Args:
+            output_dim (int): The dimensionality of the output distribution.
+        """
         super().__init__()
         self.output_dim = output_dim
+        # A small offset added to standard deviation to avoid division by zero:
         self.std_offset = 1e-10
 
+        # Pre-initialized means for the Gaussian distribution:
         self.gaussian_means = torch.zeros(self.output_dim)
+        # Pre-initialized standard deviations for the Gaussian distribution:
         self.gaussian_stds = torch.ones(self.output_dim)
 
         if torch.cuda.is_available():
@@ -22,6 +36,9 @@ class NormalDistribution(nn.Module):
             self.gaussian_stds = self.gaussian_stds.cuda()
 
     def forward(self, means, stds):
+        """
+        Generates output based on provided means and standard deviations and calculates the Kullback–Leibler divergence
+        """
         stds = torch.abs(stds)
         gaussian_vector = torch.normal(self.gaussian_means, self.gaussian_stds)
 
@@ -33,18 +50,39 @@ class NormalDistribution(nn.Module):
         return output, kl
 
     def log_prob(self, x, means, stds):
+        """
+        Computes log probability density.
+        """
         log_prob_density = - 0.5 * ((x - means) / (stds + self.std_offset)) ** 2
         normalization_const = torch.log(stds + self.std_offset) + 0.5 * math.log(2 * math.pi)
         return log_prob_density - normalization_const
 
     def kl_divergence(self, x, means, stds):
+        """
+        Calculates the KL divergence for the given inputs.
+        """
         kl_components = self.log_prob(x, means, stds) - self.log_prob(x, self.gaussian_means, self.gaussian_stds)
         kl = kl_components.mean()
         return kl
 
 
 class EncodingNetwork(nn.Module):
+    """
+    The encoding network component of the LEO algorithm.
+
+    This network encodes the support set inputs and processes them through a relation network
+    to produce latent distributions for each class.
+    """
+
     def __init__(self, n_support, n_way, x_dim, encoder_dim, dropout):
+        """
+        Args:
+            n_support (int): Number of support samples per class.
+            n_way (int): Number of classes.
+            x_dim (int): Dimensionality of the encoder's input.
+            encoder_dim (int): Dimensionality of the encoder's output.
+            dropout (float): Dropout rate for regularization.
+        """
         super().__init__()
         self.n_support = n_support
         self.n_way = n_way
@@ -52,66 +90,142 @@ class EncodingNetwork(nn.Module):
         self.dropout = dropout
 
         self.encoding_layer = nn.Linear(x_dim, encoder_dim)
+        # The relation network takes pairs of encoded inputs to be able to compare them,
+        # and it outputs transformed features that encode the relationship between the pair
         self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim)
         self.normal_distribution = NormalDistribution(output_dim=self.n_way*self.encoder_dim)
 
     def forward(self, x_support):
+        """
+        Processes the support set through the network, generates output and
+        calculates the Kullback–Leibler divergence.
+
+        Args:
+            x_support (tensor): (n-ways x n-shots) x M features where shots of the same class are contiguous
+        """
         x_support = self.dropout(x_support)
         encoded_x_support = self.encoding_layer(x_support)
 
+        # Form pairs of all encoded inputs to compare each one with everybody else
+        # - left-hand: (n-ways x n-shots) x M features
+        #   => (n-ways x n-shots) x 1 x M features
+        #   => (n-ways x n-shots) x (n-ways x n-shots) x H features
         lhs_relation_net_input = encoded_x_support.unsqueeze(1).tile((1, self.n_way * self.n_support, 1))
+        # - right-hand: (n-ways x n-shots) x M features
+        #   => 1 x (n-ways x n-shots) x M features
+        #   => (n-ways x n-shots) x (n-ways x n-shots) x H features
         rhs_relation_net_input = encoded_x_support.unsqueeze(0).tile((self.n_way * self.n_support, 1, 1))
+        # - Concatenate the left-hand and right-hand inputs to form the complete input to the relation network:
+        #   => (n-ways x n-shots) x (n-ways x n-shots) x (2 x H features)
         relation_net_input = torch.cat((lhs_relation_net_input, rhs_relation_net_input), dim=-1)
 
-        relation_net_output = self.relation_net(relation_net_input).mean(dim=1)
-        relation_net_per_class_output = relation_net_output.view(self.n_way, self.n_support, -1).mean(dim=1)
+        # Pass pairs through relation network
+        relation_net_output = self.relation_net(relation_net_input)
 
+        # Aggregate the pairwise comparisons
+        # - (n-ways x n-shots) x (n-ways x n-shots) x (2 x H features)
+        #   => (n-ways x n-shots) x (2 x H features)
+        #   => n-ways x n-shots x (2 x H features)
+        #   => n-ways x (2 x H features)
+        relation_net_per_class_output = relation_net_output.mean(dim=1)
+        relation_net_per_class_output = relation_net_per_class_output.view(self.n_way, self.n_support, -1)
+        relation_net_per_class_output = relation_net_per_class_output.mean(dim=1)
+
+        # Alternative equivalent code:
+        #relation_net_per_class_output = relation_net_output.view(self.n_way, self.n_way*self.n_support*self.n_support, -1)
+        #relation_net_per_class_output = torch.mean(relation_net_per_class_output, dim=1)
+
+        # The encoded features are effectively doubled to encode both means and
+        # standard deviations for each class, which now we split:
         means, stds = relation_net_per_class_output.chunk(chunks=2, dim=-1)
+        # Go form 2D (n-way x H features) to 1D:
         means = means.contiguous().view(self.n_way * self.encoder_dim)
         stds = stds.contiguous().view(self.n_way * self.encoder_dim)
+
+        # Generate final output n-way x H features
         output, kl_div = self.normal_distribution(means, stds)
         output = output.view(self.n_way, self.encoder_dim)
+
         return output, kl_div
 
 
 class DecodingNetwork(nn.Module):
+    """
+    The decoding network component of the LEO algorithm.
+
+    This network decodes the latent outputs from the encoding network to produce
+    the final task-specific parameters.
+    """
+
     def __init__(self, n_way, latent_dim, output_dim):
+        """
+        Args:
+            n_way (int): Number of classes.
+            latent_dim (int): Dimensionality of the latent space.
+            output_dim (int): Dimensionality of the final output.
+        """
         super().__init__()
         self.n_way = n_way
         self.latent_dim = latent_dim
+        # The decoding layer is designed to produce an output that is twice the
+        # size of the output_dim. This is because the output is intended to
+        # represent both the means and standard deviations for a Gaussian
+        # distribution:
         self.decoding_layer = nn.Linear(self.n_way*self.latent_dim, 2 * output_dim)
         self.normal_distribution = NormalDistribution(output_dim=output_dim)
 
     def forward(self, latent_output):
+        """
+        Decodes the latent output to produce final parameters.
+
+        Args:
+            latent_output (tensor): n-ways x H features
+        """
+        # Flat the latent tensor from 2D to 1D
         latent_output = latent_output.view(self.n_way*self.latent_dim)
+        # Decode:
+        # - (n-ways x H features) => (2 x output dimension)
         decoded_output = self.decoding_layer(latent_output)
+        # Splits the decoded output into means and standard deviations:
         means, stds = decoded_output.chunk(chunks=2, dim=-1)
+        # Generates samples from a Gaussian distribution using the above parameters
+        # - (output dimension)
         output, _ = self.normal_distribution(means, stds)
         return output
 
 
 class LEO(MetaTemplate):
+    """
+    Latent Embedding Optimization (LEO) algorithm for few-shot learning.
+
+    This class integrates the encoding and decoding networks and provides methods
+    for training and testing the LEO model.
+    """
+
     def __init__(self, x_dim, backbone_dims, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init,
                  num_adaptation_steps, kl_coef, orthogonality_penalty_coef, encoder_penalty_coef, dropout,
                  gradient_threshold, gradient_norm_threshold, latent_space_dim, optimize_backbone):
         """
-            Initialize the LEO (Latent Embedding Optimization) model.
+        Initialize the LEO (Latent Embedding Optimization) model.
 
-            Args:
-                x_dim (int): Input data dimension.
-                backbone_dims (List[int]): Backbone layer dimensions.
-                backbone (object): The backbone of the model.
-                n_way (int): Number of classes in each task.
-                n_support (int): Number of support examples per class.
-                n_task (int): Number of tasks.
-                inner_lr_init (float): Initial inner loop learning rate.
-                finetuning_lr_init (float): Initial finetuning loop learning rate.
-                num_adaptation_steps (int): Number of inner and fine-tuning loops adaptation steps.
-                kl_coef (float): Coefficient for KL divergence penalty.
-                orthogonality_penalty_coef (float): Coefficient for orthogonality penalty.
-                encoder_penalty_coef (float): Coefficient for encoder penalty.
-                dropout (float): Dropout probability.
-                optimize_backbone (bool): If True then both classifier and backbone weights are optimized.
+        Args:
+            x_dim (int): Input data dimension.
+            backbone_dims (List[int]): Backbone layer dimensions.
+            backbone (object): The backbone of the model.
+            n_way (int): Number of classes in each task.
+            n_support (int): Number of support examples per class.
+            n_task (int): Number of tasks.
+            inner_lr_init (float): Initial inner loop learning rate.
+            finetuning_lr_init (float): Initial finetuning loop learning rate.
+            num_adaptation_steps (int): Number of inner and fine-tuning loops adaptation steps.
+            kl_coef (float): Coefficient for KL divergence penalty.
+            orthogonality_penalty_coef (float): Coefficient for orthogonality penalty.
+            encoder_penalty_coef (float): Coefficient for encoder penalty.
+            dropout (float): Dropout probability.
+            gradient_threshold (float): Threshold for gradient clipping.
+            gradient_norm_threshold (float): Threshold for gradient norm clipping.
+            latent_space_dim (int): Dimensionality of the latent space.
+            optimize_backbone (bool): If True then both classifier and backbone weights are optimized.
         """
         super(LEO, self).__init__(backbone, n_way, n_support, change_way=False)
 
@@ -176,14 +290,14 @@ class LEO(MetaTemplate):
 
     def orthogonality(self, weight):
         """
-            Calculate the orthogonality penalty for a weight matrix.
+        Calculate the orthogonality penalty for a weight matrix.
 
-            Args:
-            - weight (torch.Tensor): The weight matrix to calculate the orthogonality penalty for.
+        Args:
+        - weight (torch.Tensor): The weight matrix to calculate the orthogonality penalty for.
 
-            Returns:
-            - torch.Tensor: The orthogonality penalty, computed as the mean squared difference
-            between the correlation matrix of the weight matrix and the identity matrix.
+        Returns:
+        - torch.Tensor: The orthogonality penalty, computed as the mean squared difference
+        between the correlation matrix of the weight matrix and the identity matrix.
         """
         w_square = weight @ weight.t()
         w_norm = torch.norm(weight, dim=1, keepdim=True) + 1e-10
@@ -224,9 +338,19 @@ class LEO(MetaTemplate):
                 self.feature.encoder[layer_idx][1].bias.fast = batch_norm_bias
 
     def calculate_scores_and_regularization_parameters(self, x, y=None):
+        """
+        Args:
+            x (tensor): n-shots x (k-shots + query shots) x M features
+        """
         if torch.cuda.is_available():
             x = x.cuda()
 
+        # For the current episode, build the support and query datasets (for training and validation, respectively)
+        # in 2D instead of 3D:
+        #   n-shots x (k-shots + query shots) x M features
+        #       => (n-shots x k-shots) x M features
+        #       => (n-shots x query shots) x M features
+        # and shots of the same class are kept contiguous
         x_support = x[:, :self.n_support, :].contiguous().view(self.n_way * self.n_support, -1)
         x_query = x[:, self.n_support:, :].contiguous().view(self.n_way * self.n_query, -1)
 
@@ -240,21 +364,26 @@ class LEO(MetaTemplate):
 
         self.zero_grad()
 
+        # Initialize classifier (and, optionally, backbone) conditioned to the support dataset
         latents_z, kl_div = self.encoder(x_support)
         latents_z_init = latents_z.detach()
         weights = self.decoder(latents_z)
         self.set_weights(weights)
 
-        # Meta training inner loop
+        # Meta training inner loop (aka the adaptation procedure)
+        # - updates the classiffier weights by decoding modified latent z values (modified using the computed gradient)
         for _ in range(self.num_adaptation_steps):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
+            # PyTorch keeps track of all operations that affect tensors, which allows it to automatically calculate derivatives
+            # such as to compute the gradient of the loss function (set_loss) with respect to the latent variables (latents_z):
             grad = torch.autograd.grad(set_loss, latents_z, create_graph=True)[0]
             latents_z = latents_z - self.inner_lr * grad
             weights = self.decoder(latents_z)
             self.set_weights(weights)
 
         # Meta training fine-tuning loop
+        # - updates the classiffier weights by using the computed gradient
         for _ in range(self.num_adaptation_steps):
             scores = self.forward(x_support)
             set_loss = self.loss_fn(scores, y_support)
@@ -277,7 +406,6 @@ class LEO(MetaTemplate):
     def set_forward_loss(self, x, y=None):
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
 
-
         if y is None:  # Classification task
             y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
         else:  # Regression task
@@ -297,6 +425,9 @@ class LEO(MetaTemplate):
         return regularized_loss
 
     def train_loop(self, epoch, train_loader, optimizer):  # overwrite parrent function
+        """
+        Training loop for the LEO model
+        """
         print_freq = 10
         avg_loss = 0
         task_count = 0
@@ -351,6 +482,9 @@ class LEO(MetaTemplate):
                 wandb.log({'loss/train': avg_loss / float(i + 1)})
 
     def test_loop(self, test_loader, return_std=False):  # overwrite parrent function
+        """
+        Testing loop for evaluating the LEO model
+        """
         correct = 0
         count = 0
         acc_all = []
