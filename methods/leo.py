@@ -377,6 +377,12 @@ class LEO(MetaTemplate):
     def set_forward_loss(self, x, y=None):
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
 
+        decoder_parameters = list(self.decoder.parameters())
+        orthogonality_penalty = (
+                self.orthogonality(decoder_parameters[0]) +
+                self.orthogonality(decoder_parameters[1].unsqueeze(1))
+        )
+
         if y is None:  # Classification task
             y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
         else:  # Regression task
@@ -386,15 +392,12 @@ class LEO(MetaTemplate):
             y_query = y_query.cuda()
 
         loss = self.loss_fn(scores, y_query)
-        regularized_loss = loss + self.kl_coef * kl_div + self.encoder_penalty_coef * encoder_penalty
-
-        if not self.optimize_backbone:
-            decoder_parameters = list(self.decoder.parameters())
-            orthogonality_penalty = (
-                    self.orthogonality(decoder_parameters[0]) +
-                    self.orthogonality(decoder_parameters[1].unsqueeze(1))
-            )
-            regularized_loss = regularized_loss + self.orthogonality_penalty_coef * orthogonality_penalty
+        regularized_loss = (
+                loss +
+                self.kl_coef * kl_div +
+                self.encoder_penalty_coef * encoder_penalty +
+                self.orthogonality_penalty_coef * orthogonality_penalty
+        )
 
         return regularized_loss
 
