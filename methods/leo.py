@@ -311,6 +311,7 @@ class LEO(MetaTemplate):
         return torch.mean((correlation_matrix - identity) ** 2)
 
     def set_weights(self, weights):
+        print(weights.shape)
         weights_vectors_dims = [dim[0] * dim[1] for dim in self.weights_matrices_dims]
         weights_components = weights.split(weights_vectors_dims)
 
