@@ -334,7 +334,7 @@ class LEO(MetaTemplate):
         x_query = x[:, self.n_support:, :].contiguous().view(self.n_way * self.n_query, -1)
 
         if self.do_pretrain_weights:
-            return self.forward(x.view(self.n_way * (self.n_support + self.n_query), -1))
+            return self.forward(torch.cat((x_support, x_query), dim=0))
 
         if y is None:  # Classification task, assign labels (class indices) based on n_way
             y_support = torch.from_numpy(np.repeat(range(self.n_way), self.n_support))
