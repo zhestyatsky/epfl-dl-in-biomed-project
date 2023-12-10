@@ -382,7 +382,7 @@ class LEO(MetaTemplate):
         if self.do_pretrain_weights:
             return self.calculate_scores_and_regularization_parameters(x)
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
-        return scores
+        return scores[self.n_way * self.n_support:]
 
     def set_forward_adaptation(self, x, is_feature=False):  # overwrite parrent function
         raise ValueError('MAML performs further adapation simply by increasing task_upate_num')
@@ -407,7 +407,7 @@ class LEO(MetaTemplate):
 
         if self.do_pretrain_weights:
             scores = self.calculate_scores_and_regularization_parameters(x)
-            return self.loss_fn(scores, y)
+            return self.loss_fn(scores, y_query)
 
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
 
