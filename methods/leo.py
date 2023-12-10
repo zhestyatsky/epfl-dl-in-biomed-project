@@ -40,7 +40,6 @@ class NormalDistribution(nn.Module):
         """
         Generates output based on provided means and standard deviations and calculates the Kullback–Leibler divergence
         """
-        stds = nn.functional.softplus(stds)
         gaussian_vector = torch.normal(self.gaussian_means, self.gaussian_stds)
 
         if torch.cuda.is_available():
@@ -99,8 +98,18 @@ class EncodingNetwork(nn.Module):
             nn.Linear(2 * encoder_dim, 2 * encoder_dim, bias=False),
             nn.ReLU(),
             nn.Linear(2 * encoder_dim, 2 * encoder_dim, bias=False),
+            nn.ReLU(),
         )
         self.normal_distribution = NormalDistribution(output_dim=self.n_way * self.encoder_dim)
+
+        # Xavier Initialization: Balance the variance of the inputs and outputs of a given layer. Helps to to avoid that activations vanish or explode.
+        # - Initialize encoding layer
+        nn.init.xavier_uniform_(self.encoding_layer.weight)
+
+        # - Initialize layers in relation_net
+        for layer in self.relation_net:
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight)
 
     def forward(self, x_support):
         """
@@ -182,6 +191,10 @@ class DecodingNetwork(nn.Module):
         self.decoding_layer = nn.Linear(self.latent_dim, 2 * output_dim, bias=False)
         self.normal_distribution = NormalDistribution(output_dim=self.n_way * output_dim)
 
+        # Xavier Initialization: Balance the variance of the inputs and outputs of a given layer. Helps to to avoid that activations vanish or explode.
+        # - Initialize encoding layer
+        nn.init.xavier_uniform_(self.decoding_layer.weight)
+
     def forward(self, latent_output):
         """
         Decodes the latent output to produce final parameters.
@@ -237,6 +250,11 @@ class LEO(MetaTemplate):
             optimize_backbone (bool): If True then both classifier and backbone weights are optimized.
         """
         super(LEO, self).__init__(backbone, n_way, n_support, change_way=False)
+
+        for p in backbone.parameters():
+            if p.dim() > 1:  # Check if it's a weight tensor
+                # Xavier Initialization: Balance the variance of the inputs and outputs of a given layer. Helps to to avoid that activations vanish or explode.
+                nn.init.xavier_uniform_(p)
 
         self.classifier = Linear_fw(self.feat_dim, n_way)
         self.classifier.bias.data.fill_(0)
@@ -404,7 +422,7 @@ class LEO(MetaTemplate):
 
         return regularized_loss
 
-    def train_loop(self, epoch, train_loader, optimizer):  # overwrite parrent function
+    def train_loop(self, epoch, train_loader, optimizers):  # overwrite parrent function
         """
         Training loop for the LEO model
         """
@@ -412,7 +430,11 @@ class LEO(MetaTemplate):
         avg_loss = 0
         task_count = 0
         loss_all = []
-        optimizer.zero_grad()
+        if not isinstance(optimizers, list):
+            optimizers = [optimizers]
+
+        for optimizer in optimizers:
+            optimizer.zero_grad()
 
         # train
         for i, (x, y) in enumerate(train_loader):
@@ -451,10 +473,12 @@ class LEO(MetaTemplate):
                 nn.utils.clip_grad_value_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_threshold)
                 nn.utils.clip_grad_norm_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_norm_threshold)
 
-                optimizer.step()
+                for optimizer in optimizers:
+                    optimizer.step()
                 task_count = 0
                 loss_all = []
-            optimizer.zero_grad()
+            for optimizer in optimizers:
+                optimizer.zero_grad()
             if i % print_freq == 0:
                 print('Epoch {:d} | Batch {:d}/{:d} | Loss {:f}'.format(epoch, i, len(train_loader), avg_loss / float(i + 1)))
                 print('InnerLR {:f}'.format(self.inner_lr.item()))
