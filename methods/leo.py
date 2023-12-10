@@ -39,7 +39,7 @@ class NormalDistribution(nn.Module):
         """
         Generates output based on provided means and standard deviations and calculates the Kullback–Leibler divergence
         """
-        stds = torch.abs(stds)
+        stds = torch.exp(0.5 * stds)
         gaussian_vector = torch.normal(self.gaussian_means, self.gaussian_stds)
 
         if torch.cuda.is_available():
