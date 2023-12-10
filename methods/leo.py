@@ -171,7 +171,11 @@ class DecodingNetwork(nn.Module):
         # size of the output_dim. This is because the output is intended to
         # represent both the means and standard deviations for a Gaussian
         # distribution:
-        self.decoding_layer = nn.Linear(self.n_way*self.latent_dim, 2 * output_dim)
+        self.decoding_layer = nn.Sequential(
+            nn.Linear(self.n_way*self.latent_dim, self.latent_dim),
+            nn.ReLU(),
+            nn.Linear(self.latent_dim, 2 * output_dim),
+        )
         self.normal_distribution = NormalDistribution(output_dim=output_dim)
 
     def forward(self, latent_output):
