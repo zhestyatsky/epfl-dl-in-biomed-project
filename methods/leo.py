@@ -346,6 +346,11 @@ class LEO(MetaTemplate):
         if self.do_pretrain_weights:
             return self.forward(x)
 
+        print(f"weight fast", self.classifier.weight.fast)
+        print(f"bias fast", self.classifier.bias.fast)
+        print(f"weight", self.classifier.weight)
+        print(f"bias", self.classifier.bias)
+
         # Initialize classifier (and, optionally, backbone) conditioned to the support dataset
         latents_z, kl_div = self.encoder(x_support)
         latents_z_init = latents_z.detach()
