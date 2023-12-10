@@ -393,12 +393,21 @@ class LEO(MetaTemplate):
         else:  # Regression task
             y_query = y[:, self.n_support:].contiguous().view(self.n_way * self.n_query, -1)
 
+        if y is None:  # Classification task, assign labels (class indices) based on n_way
+            y_support = torch.from_numpy(np.repeat(range(self.n_way), self.n_support))
+        else:  # Regression task, keep labels as they are
+            y_support = y[:, :self.n_support].contiguous().view(self.n_way * self.n_support, -1)
+
+        y = torch.cat((y_query, y_support), dim=0)
+
         if torch.cuda.is_available():
             y_query = y_query.cuda()
+            y_support = y_support.cuda()
+            y = y.cuda()
 
         if self.do_pretrain_weights:
             scores = self.calculate_scores_and_regularization_parameters(x, y)
-            return self.loss_fn(scores, y_query)
+            return self.loss_fn(scores, y.view(self.n_way * (self.n_query+self.n_support), -1))
 
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
 
