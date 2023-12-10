@@ -407,7 +407,10 @@ class LEO(MetaTemplate):
 
         if self.do_pretrain_weights:
             scores = self.calculate_scores_and_regularization_parameters(x)
-            return self.loss_fn(scores, y.view(self.n_way * (self.n_query+self.n_support), -1))
+            y = y.view(self.n_way * (self.n_query+self.n_support), -1)
+            print("scores.shape", scores.shape)
+            print("y.shape", y.shape)
+            return self.loss_fn(scores, y)
 
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
 
