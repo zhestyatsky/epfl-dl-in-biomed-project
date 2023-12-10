@@ -82,7 +82,7 @@ class EncodingNetwork(nn.Module):
             n_way (int): Number of classes.
             x_dim (int): Dimensionality of the encoder's input.
             encoder_dim (int): Dimensionality of the encoder's output.
-            dropout (float): Dropout rate for regularization.
+            dropout (nn.Module): Dropout for regularization.
         """
         super().__init__()
         self.n_support = n_support
