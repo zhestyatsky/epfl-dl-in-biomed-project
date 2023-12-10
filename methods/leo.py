@@ -93,7 +93,13 @@ class EncodingNetwork(nn.Module):
         self.encoding_layer = nn.Linear(x_dim, encoder_dim, bias=False)
         # The relation network takes pairs of encoded inputs to be able to compare them,
         # and it outputs transformed features that encode the relationship between the pair
-        self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim, bias=False)
+        self.relation_net = nn.Sequential(
+            nn.Linear(2 * encoder_dim, 2 * encoder_dim, bias=False),
+            nn.ReLU(),
+            nn.Linear(2 * encoder_dim, 2 * encoder_dim, bias=False),
+            nn.ReLU(),
+            nn.Linear(2 * encoder_dim, 2 * encoder_dim, bias=False),
+        )
         self.normal_distribution = NormalDistribution(output_dim=self.n_way * self.encoder_dim)
 
     def forward(self, x_support):
