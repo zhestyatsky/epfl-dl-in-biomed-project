@@ -423,7 +423,10 @@ class LEO(MetaTemplate):
 
         if not self.optimize_backbone:
             # TODO: Perhaps include decoder bias
-            orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
+            orthogonality_penalty = (
+                    self.orthogonality(list(self.decoder.parameters())[0]) +
+                    self.orthogonality(list(self.decoder.parameters())[2])
+            )
             regularized_loss = regularized_loss + self.orthogonality_penalty_coef * orthogonality_penalty
 
         return regularized_loss
