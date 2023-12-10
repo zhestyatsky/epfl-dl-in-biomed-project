@@ -41,7 +41,8 @@ def initialize_dataset_model(cfg):
         print("Pretraining with MAML...")
         state_dict = torch.load('./swissprot_maml_backbone.tar')['state']
         print("State dict", state_dict)
-        pretrained_dict = {k: v for k, v in state_dict.items() if k.startswith('feature')}
+        pretrained_dict = {k: v for k, v in state_dict.items()
+                           if k.startswith('feature') and (k.endswith('weight') or k.endswith('bias'))}
         print("Pretrained dict", pretrained_dict)
         model.load_state_dict(pretrained_dict, strict=False)
     else:
