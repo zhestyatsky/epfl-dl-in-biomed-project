@@ -40,7 +40,8 @@ def initialize_dataset_model(cfg):
             print("Using pretrained weights pretraining ...")
             state_dict = torch.load(cfg.method.pretrained_weights_path)['state']
             print("state dict", state_dict)
-            pretrained_dict = {k: v for k, v in state_dict.items() if k.endswith('weight') or k.endswith('bias')}
+            pretrained_dict = {k: v for k, v in state_dict.items()
+                               if k.startswith('feature') and (k.endswith('weight') or k.endswith('bias'))}
             model.load_state_dict(pretrained_dict, strict=False)
     else:
         model = instantiate(cfg.method.cls, backbone=backbone)
