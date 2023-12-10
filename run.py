@@ -105,25 +105,35 @@ def train(train_loader, val_loader, model, cfg):
             model.load_state_dict(tmp['state'])
 
     if cfg.method.name == "leo":
-        model_parameters = [*model.encoder.parameters(), *model.decoder.parameters(), model.inner_lr, model.finetuning_lr]
-        optimizer = instantiate(cfg.optimizer_cls, params=model_parameters, weight_decay=cfg.method.weight_decay)
+        #model_parameters = [*model.encoder.parameters(), *model.decoder.parameters(), model.inner_lr, model.finetuning_lr]
+        #optimizer = instantiate(cfg.optimizer_cls, params=model_parameters, weight_decay=cfg.method.weight_decay)
+
+        params_lr_names = ['inner_lr', 'finetuning_lr']
+        params_model = [x[1] for x in list(filter(lambda kv: kv[0] not in params_lr_names, model.named_parameters()))]
+        params_lr    = [x[1] for x in list(filter(lambda kv: kv[0]     in params_lr_names, model.named_parameters()))]
+
+        optimizer_model = instantiate(cfg.optimizer_cls, params=params_model, weight_decay=cfg.method.weight_decay)
+        optimizer_lr = instantiate(cfg.optimizer_cls, params=params_lr)
+        optimizers = [optimizer_model, optimizer_lr]
+
     else:
-        optimizer = instantiate(cfg.optimizer_cls, params=model.parameters())
+        optimizer_model = instantiate(cfg.optimizer_cls, params=model.parameters())
+        optimizers = optimizer_model
 
     print("Model Architecture:")
     print(model)
     wandb.config.update({"model_details": model_to_dict(model)})
 
     print("Optimizer:")
-    print(optimizer)
-    wandb.config.update({"optimizer_details": opt_to_dict(optimizer)})
+    print(optimizer_model)
+    wandb.config.update({"optimizer_details": opt_to_dict(optimizer_model)})
 
     max_acc = -1
 
     for epoch in range(cfg.method.start_epoch, cfg.method.stop_epoch):
         wandb.log({'epoch': epoch})
         model.train()
-        model.train_loop(epoch, train_loader, optimizer)
+        model.train_loop(epoch, train_loader, optimizers)
 
         if epoch % cfg.exp.val_freq == 0 or epoch == cfg.method.stop_epoch - 1:
             model.eval()
