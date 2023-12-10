@@ -167,14 +167,13 @@ class DecodingNetwork(nn.Module):
         super().__init__()
         self.n_way = n_way
         self.latent_dim = latent_dim
+        self.output_dim = output_dim
         # The decoding layer is designed to produce an output that is twice the
         # size of the output_dim. This is because the output is intended to
         # represent both the means and standard deviations for a Gaussian
         # distribution:
         self.decoding_layer = nn.Sequential(
-            nn.Linear(self.n_way*self.latent_dim, self.latent_dim),
-            nn.ReLU(),
-            nn.Linear(self.latent_dim, 2 * output_dim),
+            nn.Linear(self.latent_dim, 2*output_dim),
         )
         self.normal_distribution = NormalDistribution(output_dim=output_dim)
 
@@ -185,13 +184,13 @@ class DecodingNetwork(nn.Module):
         Args:
             latent_output (tensor): n-ways x H features
         """
-        # Flat the latent tensor from 2D to 1D
-        latent_output = latent_output.view(self.n_way*self.latent_dim)
         # Decode:
         # - (n-ways x H features) => (2 x output dimension)
         decoded_output = self.decoding_layer(latent_output)
         # Splits the decoded output into means and standard deviations:
         means, stds = decoded_output.chunk(chunks=2, dim=-1)
+        means = means.contiguous().view(self.n_way * self.output_dim)
+        stds = stds.contiguous().view(self.n_way * self.output_dim)
         # Generates samples from a Gaussian distribution using the above parameters
         # - (output dimension)
         output, _ = self.normal_distribution(means, stds)
