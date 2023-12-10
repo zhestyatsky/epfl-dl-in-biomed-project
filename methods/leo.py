@@ -90,10 +90,10 @@ class EncodingNetwork(nn.Module):
         self.encoder_dim = encoder_dim
         self.dropout = dropout
 
-        self.encoding_layer = nn.Linear(x_dim, encoder_dim)
+        self.encoding_layer = nn.Linear(x_dim, encoder_dim, bias=False)
         # The relation network takes pairs of encoded inputs to be able to compare them,
         # and it outputs transformed features that encode the relationship between the pair
-        self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim)
+        self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim, bias=False)
         self.normal_distribution = NormalDistribution(output_dim=self.n_way * self.encoder_dim)
 
     def forward(self, x_support):
@@ -173,7 +173,7 @@ class DecodingNetwork(nn.Module):
         # size of the output_dim. This is because the output is intended to
         # represent both the means and standard deviations for a Gaussian
         # distribution:
-        self.decoding_layer = nn.Linear(self.latent_dim, 2 * output_dim)
+        self.decoding_layer = nn.Linear(self.latent_dim, 2 * output_dim, bias=False)
         self.normal_distribution = NormalDistribution(output_dim=self.n_way * output_dim)
 
     def forward(self, latent_output):
@@ -378,10 +378,7 @@ class LEO(MetaTemplate):
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
 
         decoder_parameters = list(self.decoder.parameters())
-        orthogonality_penalty = (
-                self.orthogonality(decoder_parameters[0]) +
-                self.orthogonality(decoder_parameters[1].unsqueeze(1))
-        )
+        orthogonality_penalty = self.orthogonality(decoder_parameters[0])
 
         if y is None:  # Classification task
             y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
