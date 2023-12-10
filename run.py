@@ -40,7 +40,9 @@ def initialize_dataset_model(cfg):
         #if cfg.method.pretrain:
         print("Pretraining with MAML...")
         state_dict = torch.load('./swissprot_maml_backbone.tar')['state']
+        print("State dict", state_dict)
         pretrained_dict = {k: v for k, v in state_dict.items() if k.startswith('feature')}
+        print("Pretrained dict", pretrained_dict)
         model.load_state_dict(pretrained_dict, strict=False)
     else:
         model = instantiate(cfg.method.cls, backbone=backbone)
