@@ -388,28 +388,25 @@ class LEO(MetaTemplate):
         raise ValueError('MAML performs further adapation simply by increasing task_upate_num')
 
     def set_forward_loss(self, x, y=None):
-        if y is None:  # Classification task
-            y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
-        else:  # Regression task
-            y_query = y[:, self.n_support:].contiguous().view(self.n_way * self.n_query, -1)
-
         if y is None:  # Classification task, assign labels (class indices) based on n_way
             y_support = torch.from_numpy(np.repeat(range(self.n_way), self.n_support))
         else:  # Regression task, keep labels as they are
             y_support = y[:, :self.n_support].contiguous().view(self.n_way * self.n_support, -1)
 
+        if y is None:  # Classification task
+            y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
+        else:  # Regression task
+            y_query = y[:, self.n_support:].contiguous().view(self.n_way * self.n_query, -1)
+
         y = torch.cat((y_support, y_query), dim=0)
 
         if torch.cuda.is_available():
-            y_query = y_query.cuda()
             y_support = y_support.cuda()
+            y_query = y_query.cuda()
             y = y.cuda()
 
         if self.do_pretrain_weights:
             scores = self.calculate_scores_and_regularization_parameters(x)
-            y = y.view(self.n_way * (self.n_query+self.n_support), -1)
-            print("scores.shape", scores.shape)
-            print("y.shape", y.shape)
             return self.loss_fn(scores, y)
 
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
