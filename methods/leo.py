@@ -190,8 +190,8 @@ class DecodingNetwork(nn.Module):
         means, stds = decoded_output.chunk(chunks=2, dim=-1)
         means = means.contiguous().view(self.n_way * self.output_dim)
         stds = stds.contiguous().view(self.n_way * self.output_dim)
-        # Generates samples from a Gaussian distribution using the above parameters
-        # - (output dimension)
+        # Generates samples from a Normal distribution using the above parameters
+        # - (n_way x output dimension)
         output, _ = self.normal_distribution(means, stds)
         output = output.view(self.n_way, self.output_dim)
         return output
