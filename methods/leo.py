@@ -333,6 +333,9 @@ class LEO(MetaTemplate):
         x_support = x[:, :self.n_support, :].contiguous().view(self.n_way * self.n_support, -1)
         x_query = x[:, self.n_support:, :].contiguous().view(self.n_way * self.n_query, -1)
 
+        if self.do_pretrain_weights:
+            return self.forward(x.view(self.n_way * (self.n_support + self.n_query), -1))
+
         if y is None:  # Classification task, assign labels (class indices) based on n_way
             y_support = torch.from_numpy(np.repeat(range(self.n_way), self.n_support))
         else:  # Regression task, keep labels as they are
@@ -342,9 +345,6 @@ class LEO(MetaTemplate):
             y_support = y_support.cuda()
 
         self.zero_grad()
-
-        if self.do_pretrain_weights:
-            return self.forward(x.view(self.n_way * (self.n_support + self.n_query), -1))
 
         # Initialize classifier (and, optionally, backbone) conditioned to the support dataset
         latents_z, kl_div = self.encoder(x_support)
@@ -380,7 +380,7 @@ class LEO(MetaTemplate):
 
     def set_forward(self, x, y=None):
         if self.do_pretrain_weights:
-            return self.calculate_scores_and_regularization_parameters(x, y)
+            return self.calculate_scores_and_regularization_parameters(x)
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
         return scores
 
@@ -398,7 +398,7 @@ class LEO(MetaTemplate):
         else:  # Regression task, keep labels as they are
             y_support = y[:, :self.n_support].contiguous().view(self.n_way * self.n_support, -1)
 
-        y = torch.cat((y_query, y_support), dim=0)
+        y = torch.cat((y_support, y_query), dim=0)
 
         if torch.cuda.is_available():
             y_query = y_query.cuda()
@@ -406,7 +406,7 @@ class LEO(MetaTemplate):
             y = y.cuda()
 
         if self.do_pretrain_weights:
-            scores = self.calculate_scores_and_regularization_parameters(x, y)
+            scores = self.calculate_scores_and_regularization_parameters(x)
             return self.loss_fn(scores, y.view(self.n_way * (self.n_query+self.n_support), -1))
 
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
