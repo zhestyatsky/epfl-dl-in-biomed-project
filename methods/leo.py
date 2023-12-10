@@ -194,6 +194,7 @@ class DecodingNetwork(nn.Module):
         # Generates samples from a Gaussian distribution using the above parameters
         # - (output dimension)
         output, _ = self.normal_distribution(means, stds)
+        output = output.view(self.n_way, self.output_dim)
         return output
 
 
@@ -311,9 +312,8 @@ class LEO(MetaTemplate):
         return torch.mean((correlation_matrix - identity) ** 2)
 
     def set_weights(self, weights):
-        print(weights.shape)
         weights_vectors_dims = [dim[0] * dim[1] for dim in self.weights_matrices_dims]
-        weights_components = weights.split(weights_vectors_dims)
+        weights_components = weights.split(weights_vectors_dims, dim=-1)
 
         # First we set the classifier weights
         clf_weights = weights_components[0]
