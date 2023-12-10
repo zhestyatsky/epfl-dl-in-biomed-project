@@ -344,7 +344,7 @@ class LEO(MetaTemplate):
         self.zero_grad()
 
         if self.do_pretrain_weights:
-            return self.forward(x)
+            return self.forward(x.view(self.n_way * (self.n_support + self.n_query), -1))
 
         print(f"weight fast", self.classifier.weight.fast)
         print(f"bias fast", self.classifier.bias.fast)
