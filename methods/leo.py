@@ -16,6 +16,7 @@ class NormalDistribution(nn.Module):
     distributions and calculating the Kullback–Leibler divergence (how one
     probability distribution P is different from another reference probability).
     """
+
     def __init__(self, output_dim):
         """
         Args:
@@ -39,7 +40,7 @@ class NormalDistribution(nn.Module):
         """
         Generates output based on provided means and standard deviations and calculates the Kullback–Leibler divergence
         """
-        stds = torch.abs(stds)
+        stds = nn.functional.softplus(stds)
         gaussian_vector = torch.normal(self.gaussian_means, self.gaussian_stds)
 
         if torch.cuda.is_available():
@@ -81,7 +82,7 @@ class EncodingNetwork(nn.Module):
             n_way (int): Number of classes.
             x_dim (int): Dimensionality of the encoder's input.
             encoder_dim (int): Dimensionality of the encoder's output.
-            dropout (float): Dropout rate for regularization.
+            dropout (nn.Module): Dropout for regularization.
         """
         super().__init__()
         self.n_support = n_support
@@ -89,11 +90,11 @@ class EncodingNetwork(nn.Module):
         self.encoder_dim = encoder_dim
         self.dropout = dropout
 
-        self.encoding_layer = nn.Linear(x_dim, encoder_dim)
+        self.encoding_layer = nn.Linear(x_dim, encoder_dim, bias=False)
         # The relation network takes pairs of encoded inputs to be able to compare them,
         # and it outputs transformed features that encode the relationship between the pair
-        self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim)
-        self.normal_distribution = NormalDistribution(output_dim=self.n_way*self.encoder_dim)
+        self.relation_net = nn.Linear(2 * encoder_dim, 2 * encoder_dim, bias=False)
+        self.normal_distribution = NormalDistribution(output_dim=self.n_way * self.encoder_dim)
 
     def forward(self, x_support):
         """
@@ -132,8 +133,8 @@ class EncodingNetwork(nn.Module):
         relation_net_per_class_output = relation_net_per_class_output.mean(dim=1)
 
         # Alternative equivalent code:
-        #relation_net_per_class_output = relation_net_output.view(self.n_way, self.n_way*self.n_support*self.n_support, -1)
-        #relation_net_per_class_output = torch.mean(relation_net_per_class_output, dim=1)
+        # relation_net_per_class_output = relation_net_output.view(self.n_way, self.n_way*self.n_support*self.n_support, -1)
+        # relation_net_per_class_output = torch.mean(relation_net_per_class_output, dim=1)
 
         # The encoded features are effectively doubled to encode both means and
         # standard deviations for each class, which now we split:
@@ -167,12 +168,13 @@ class DecodingNetwork(nn.Module):
         super().__init__()
         self.n_way = n_way
         self.latent_dim = latent_dim
+        self.output_dim = output_dim
         # The decoding layer is designed to produce an output that is twice the
         # size of the output_dim. This is because the output is intended to
         # represent both the means and standard deviations for a Gaussian
         # distribution:
-        self.decoding_layer = nn.Linear(self.n_way*self.latent_dim, 2 * output_dim)
-        self.normal_distribution = NormalDistribution(output_dim=output_dim)
+        self.decoding_layer = nn.Linear(self.latent_dim, 2 * output_dim, bias=False)
+        self.normal_distribution = NormalDistribution(output_dim=self.n_way * output_dim)
 
     def forward(self, latent_output):
         """
@@ -181,16 +183,17 @@ class DecodingNetwork(nn.Module):
         Args:
             latent_output (tensor): n-ways x H features
         """
-        # Flat the latent tensor from 2D to 1D
-        latent_output = latent_output.view(self.n_way*self.latent_dim)
         # Decode:
         # - (n-ways x H features) => (2 x output dimension)
         decoded_output = self.decoding_layer(latent_output)
         # Splits the decoded output into means and standard deviations:
         means, stds = decoded_output.chunk(chunks=2, dim=-1)
-        # Generates samples from a Gaussian distribution using the above parameters
-        # - (output dimension)
+        means = means.contiguous().view(self.n_way * self.output_dim)
+        stds = stds.contiguous().view(self.n_way * self.output_dim)
+        # Generates samples from a Normal distribution using the above parameters
+        # - (n_way x output dimension)
         output, _ = self.normal_distribution(means, stds)
+        output = output.view(self.n_way, self.output_dim)
         return output
 
 
@@ -254,25 +257,17 @@ class LEO(MetaTemplate):
         self.gradient_norm_threshold = gradient_norm_threshold
         self.optimize_backbone = optimize_backbone
 
+        assert not self.optimize_backbone, (
+            "Backbone optimization is not supported. Only classifier weights are optimized"
+        )
+
         self.dropout = nn.Dropout(p=dropout)
         self.encoder = EncodingNetwork(
             n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.latent_space_dim, dropout=self.dropout,
         )
 
-        # We add +1 because of the classifier bias vector
-        self.weights_matrices_dims = [(self.feat_dim + 1,  n_way)]
-        if self.optimize_backbone:
-            for layer_idx in range(len(backbone_dims)):
-                # We add +3 because each backbone block has bias vector in the Linear layer and 2 vectors in the BatchNorm
-                if layer_idx == 0:
-                    self.weights_matrices_dims.append((x_dim + 3, backbone_dims[layer_idx]))
-                else:
-                    self.weights_matrices_dims.append((backbone_dims[layer_idx-1] + 3, backbone_dims[layer_idx]))
-
         self.decoder = DecodingNetwork(
-            n_way=self.n_way,
-            latent_dim=self.latent_space_dim,
-            output_dim=sum(dims[0] * dims[1] for dims in self.weights_matrices_dims),
+            n_way=self.n_way, latent_dim=self.latent_space_dim, output_dim=self.feat_dim + 1,
         )
 
         self.inner_lr = nn.Parameter(torch.tensor(inner_lr_init, dtype=torch.float32))
@@ -308,34 +303,10 @@ class LEO(MetaTemplate):
         return torch.mean((correlation_matrix - identity) ** 2)
 
     def set_weights(self, weights):
-        weights_vectors_dims = [dim[0] * dim[1] for dim in self.weights_matrices_dims]
-        weights_components = weights.split(weights_vectors_dims)
-
-        # First we set the classifier weights
-        clf_weights = weights_components[0]
-        clf_matrix_dims = self.weights_matrices_dims[0]
-        clf_weight, clf_bias = clf_weights.view(clf_matrix_dims).split([clf_matrix_dims[0] - 1, 1])
+        clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
         clf_bias = clf_bias.squeeze()
-        self.classifier.weight.fast = clf_weight.T
+        self.classifier.weight.fast = clf_weight
         self.classifier.bias.fast = clf_bias
-
-        if self.optimize_backbone:
-            backbone_blocks_weights = weights_components[1:]
-            backbone_matrices_dims = self.weights_matrices_dims[1:]
-            # Then we set the backbone weights
-            for layer_idx, block_weights in enumerate(backbone_blocks_weights):
-                block_matrix_dims = backbone_matrices_dims[layer_idx]
-                # Each backbone block contains a linear layer with a bias followed by a BatchNorm
-                lin_weight, lin_bias, batch_norm_weight, batch_norm_bias = (
-                    block_weights.view(backbone_matrices_dims[layer_idx]).split([block_matrix_dims[0] - 3, 1, 1, 1])
-                )
-                lin_bias = lin_bias.squeeze()
-                batch_norm_weight = batch_norm_weight.squeeze()
-                batch_norm_bias = batch_norm_bias.squeeze()
-                self.feature.encoder[layer_idx][0].weight.fast = lin_weight.T
-                self.feature.encoder[layer_idx][0].bias.fast = lin_bias
-                self.feature.encoder[layer_idx][1].weight.fast = batch_norm_weight
-                self.feature.encoder[layer_idx][1].bias.fast = batch_norm_bias
 
     def calculate_scores_and_regularization_parameters(self, x, y=None):
         """
@@ -406,6 +377,9 @@ class LEO(MetaTemplate):
     def set_forward_loss(self, x, y=None):
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
 
+        decoder_parameters = list(self.decoder.parameters())
+        orthogonality_penalty = self.orthogonality(decoder_parameters[0])
+
         if y is None:  # Classification task
             y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
         else:  # Regression task
@@ -415,12 +389,12 @@ class LEO(MetaTemplate):
             y_query = y_query.cuda()
 
         loss = self.loss_fn(scores, y_query)
-        regularized_loss = loss + self.kl_coef * kl_div + self.encoder_penalty_coef * encoder_penalty
-
-        if not self.optimize_backbone:
-            # TODO: Perhaps include decoder bias
-            orthogonality_penalty = self.orthogonality(list(self.decoder.parameters())[0])
-            regularized_loss = regularized_loss + self.orthogonality_penalty_coef * orthogonality_penalty
+        regularized_loss = (
+                loss +
+                self.kl_coef * kl_div +
+                self.encoder_penalty_coef * encoder_penalty +
+                self.orthogonality_penalty_coef * orthogonality_penalty
+        )
 
         return regularized_loss
 
