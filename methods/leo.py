@@ -407,7 +407,7 @@ class LEO(MetaTemplate):
 
         if self.do_pretrain_weights:
             scores = self.calculate_scores_and_regularization_parameters(x)
-            return self.loss_fn(scores, y_query)
+            return self.loss_fn(scores, y)
 
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
 
