@@ -257,6 +257,10 @@ class LEO(MetaTemplate):
         self.gradient_norm_threshold = gradient_norm_threshold
         self.optimize_backbone = optimize_backbone
 
+        assert not self.optimize_backbone, (
+            "Backbone optimization is not supported. Only classifier weights are optimized"
+        )
+
         self.dropout = nn.Dropout(p=dropout)
         self.encoder = EncodingNetwork(
             n_support=n_support, n_way=n_way, x_dim=x_dim, encoder_dim=self.latent_space_dim, dropout=self.dropout,
