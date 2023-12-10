@@ -324,7 +324,7 @@ class LEO(MetaTemplate):
         # First we set the classifier weights
         #clf_weights = weights_components[0]
         #clf_matrix_dims = self.weights_matrices_dims[0]
-        clf_weight, clf_bias = weights.split([self.feat_dim, 1])
+        clf_weight, clf_bias = weights.split([self.feat_dim, 1], dim=-1)
         clf_bias = clf_bias.squeeze()
         self.classifier.weight.fast = clf_weight.T
         self.classifier.bias.fast = clf_bias
@@ -428,11 +428,10 @@ class LEO(MetaTemplate):
         regularized_loss = loss + self.kl_coef * kl_div + self.encoder_penalty_coef * encoder_penalty
 
         if not self.optimize_backbone:
-            # TODO: Perhaps include decoder bias
             decoder_parameters = list(self.decoder.parameters())
             orthogonality_penalty = (
                     self.orthogonality(decoder_parameters[0]) +
-                    self.orthogonality(decoder_parameters[2])
+                    self.orthogonality(decoder_parameters[1].unsqueeze(1))
             )
             regularized_loss = regularized_loss + self.orthogonality_penalty_coef * orthogonality_penalty
 
