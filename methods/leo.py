@@ -273,10 +273,16 @@ class LEO(MetaTemplate):
                 else:
                     self.weights_matrices_dims.append((backbone_dims[layer_idx-1] + 3, backbone_dims[layer_idx]))
 
+        #self.decoder = DecodingNetwork(
+        #    n_way=self.n_way,
+        #    latent_dim=self.latent_space_dim,
+        #    output_dim=sum(dims[0] * dims[1] for dims in self.weights_matrices_dims),
+        #)
+
         self.decoder = DecodingNetwork(
             n_way=self.n_way,
             latent_dim=self.latent_space_dim,
-            output_dim=sum(dims[0] * dims[1] for dims in self.weights_matrices_dims),
+            output_dim=self.feat_dim+1,
         )
 
         self.inner_lr = nn.Parameter(torch.tensor(inner_lr_init, dtype=torch.float32))
@@ -312,13 +318,13 @@ class LEO(MetaTemplate):
         return torch.mean((correlation_matrix - identity) ** 2)
 
     def set_weights(self, weights):
-        weights_vectors_dims = [dim[0] * dim[1] for dim in self.weights_matrices_dims]
-        weights_components = weights.split(weights_vectors_dims, dim=-1)
+        #weights_vectors_dims = [dim[0] * dim[1] for dim in self.weights_matrices_dims]
+        #weights_components = weights.split(weights_vectors_dims, dim=-1)
 
         # First we set the classifier weights
-        clf_weights = weights_components[0]
-        clf_matrix_dims = self.weights_matrices_dims[0]
-        clf_weight, clf_bias = clf_weights.view(clf_matrix_dims).split([clf_matrix_dims[0] - 1, 1])
+        #clf_weights = weights_components[0]
+        #clf_matrix_dims = self.weights_matrices_dims[0]
+        clf_weight, clf_bias = weights.split([self.feat_dim, 1])
         clf_bias = clf_bias.squeeze()
         self.classifier.weight.fast = clf_weight.T
         self.classifier.bias.fast = clf_bias
