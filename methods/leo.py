@@ -175,7 +175,7 @@ class DecodingNetwork(nn.Module):
         self.decoding_layer = nn.Sequential(
             nn.Linear(self.latent_dim, 2*output_dim),
         )
-        self.normal_distribution = NormalDistribution(output_dim=output_dim)
+        self.normal_distribution = NormalDistribution(output_dim=self.n_way*output_dim)
 
     def forward(self, latent_output):
         """
