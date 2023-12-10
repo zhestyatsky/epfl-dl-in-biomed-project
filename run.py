@@ -36,15 +36,11 @@ def initialize_dataset_model(cfg):
     # Instantiate few-shot method class
     if cfg.method.name == "leo":
         model = instantiate(cfg.method.cls, x_dim=train_dataset.dim, backbone_dims=cfg.backbone.layer_dim, backbone=backbone)
-        # pretrain with MAML
-        #if cfg.method.pretrain:
-        print("Pretraining with MAML...")
-        state_dict = torch.load('./swissprot_maml_backbone.tar')['state']
-        print("State dict", state_dict)
-        pretrained_dict = {k: v for k, v in state_dict.items()
-                           if k.startswith('feature') and (k.endswith('weight') or k.endswith('bias'))}
-        print("Pretrained dict", pretrained_dict)
-        model.load_state_dict(pretrained_dict, strict=False)
+        if cfg.method.use_pretrained_weights:
+            print("Using pretrained weights pretraining ...")
+            state_dict = torch.load(cfg.method.pretrained_weights_path)['state']
+            pretrained_dict = {k: v for k, v in state_dict.items() if k.endswith('weight') or k.endswith('bias')}
+            model.load_state_dict(pretrained_dict, strict=False)
     else:
         model = instantiate(cfg.method.cls, backbone=backbone)
 
@@ -114,7 +110,10 @@ def train(train_loader, val_loader, model, cfg):
             model.load_state_dict(tmp['state'])
 
     if cfg.method.name == "leo":
-        model_parameters = [*model.encoder.parameters(), *model.decoder.parameters(), model.inner_lr, model.finetuning_lr]
+        if cfg.method.do_pretrain_weights:
+            model_parameters = [*model.feature.parameters(), *model.classifier.parameters()]
+        else:
+            model_parameters = [*model.encoder.parameters(), *model.decoder.parameters(), model.inner_lr, model.finetuning_lr]
         optimizer = instantiate(cfg.optimizer_cls, params=model_parameters, weight_decay=cfg.method.weight_decay)
     else:
         optimizer = instantiate(cfg.optimizer_cls, params=model.parameters())

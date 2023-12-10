@@ -213,7 +213,7 @@ class LEO(MetaTemplate):
 
     def __init__(self, x_dim, backbone_dims, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init,
                  num_adaptation_steps, kl_coef, orthogonality_penalty_coef, encoder_penalty_coef, dropout,
-                 gradient_threshold, gradient_norm_threshold, latent_space_dim, optimize_backbone):
+                 gradient_threshold, gradient_norm_threshold, latent_space_dim, optimize_backbone, do_pretrain_weights):
         """
         Initialize the LEO (Latent Embedding Optimization) model.
 
@@ -235,6 +235,7 @@ class LEO(MetaTemplate):
             gradient_norm_threshold (float): Threshold for gradient norm clipping.
             latent_space_dim (int): Dimensionality of the latent space.
             optimize_backbone (bool): If True then both classifier and backbone weights are optimized.
+            do_pretrain_weights (bool): Pretrain backbone and classifier weights without metalearning.
         """
         super(LEO, self).__init__(backbone, n_way, n_support, change_way=False)
 
@@ -262,6 +263,7 @@ class LEO(MetaTemplate):
         self.gradient_threshold = gradient_threshold
         self.gradient_norm_threshold = gradient_norm_threshold
         self.optimize_backbone = optimize_backbone
+        self.do_pretrain_weights = do_pretrain_weights
 
         assert not self.optimize_backbone, (
             "Backbone optimization is not supported. Only classifier weights are optimized"
@@ -341,6 +343,9 @@ class LEO(MetaTemplate):
 
         self.zero_grad()
 
+        if self.do_pretrain_weights:
+            return self.forward(x)
+
         # Initialize classifier (and, optionally, backbone) conditioned to the support dataset
         latents_z, kl_div = self.encoder(x_support)
         latents_z_init = latents_z.detach()
@@ -374,6 +379,8 @@ class LEO(MetaTemplate):
         return scores, kl_div, encoder_penalty
 
     def set_forward(self, x, y=None):
+        if self.do_pretrain_weights:
+            return self.calculate_scores_and_regularization_parameters(x, y)
         scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
         return scores
 
@@ -381,11 +388,6 @@ class LEO(MetaTemplate):
         raise ValueError('MAML performs further adapation simply by increasing task_upate_num')
 
     def set_forward_loss(self, x, y=None):
-        scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
-
-        decoder_parameters = list(self.decoder.parameters())
-        orthogonality_penalty = self.orthogonality(decoder_parameters[0])
-
         if y is None:  # Classification task
             y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
         else:  # Regression task
@@ -393,6 +395,15 @@ class LEO(MetaTemplate):
 
         if torch.cuda.is_available():
             y_query = y_query.cuda()
+
+        if self.do_pretrain_weights:
+            scores = self.calculate_scores_and_regularization_parameters(x, y)
+            return self.loss_fn(scores, y_query)
+
+        scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
+
+        decoder_parameters = list(self.decoder.parameters())
+        orthogonality_penalty = self.orthogonality(decoder_parameters[0])
 
         loss = self.loss_fn(scores, y_query)
         regularized_loss = (
@@ -440,16 +451,17 @@ class LEO(MetaTemplate):
                 loss_q.backward()
 
                 # Check for NaN values in the gradients
-                for param in [*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr]:
-                    if torch.isnan(param.grad).any():
-                        # Create a mask for NaN values in the gradients
-                        nan_mask = torch.isnan(param.grad)
-                        # Zero out the gradients for parameters associated with NaN values
-                        param.grad[nan_mask] = 0.0
+                if not self.do_pretrain_weights:
+                    for param in [*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr]:
+                        if torch.isnan(param.grad).any():
+                            # Create a mask for NaN values in the gradients
+                            nan_mask = torch.isnan(param.grad)
+                            # Zero out the gradients for parameters associated with NaN values
+                            param.grad[nan_mask] = 0.0
 
-                # clip gradient if necessary
-                nn.utils.clip_grad_value_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_threshold)
-                nn.utils.clip_grad_norm_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_norm_threshold)
+                    # clip gradient if necessary
+                    nn.utils.clip_grad_value_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_threshold)
+                    nn.utils.clip_grad_norm_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_norm_threshold)
 
                 optimizer.step()
                 task_count = 0
