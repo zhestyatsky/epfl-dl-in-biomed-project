@@ -36,6 +36,12 @@ def initialize_dataset_model(cfg):
     # Instantiate few-shot method class
     if cfg.method.name == "leo":
         model = instantiate(cfg.method.cls, x_dim=train_dataset.dim, backbone_dims=cfg.backbone.layer_dim, backbone=backbone)
+        # pretrain with MAML
+        #if cfg.method.pretrain:
+        print("Pretraining with MAML...")
+        state_dict = torch.load('./swissprot_maml_backbone.tar')['state']
+        pretrained_dict = {k: v for k, v in state_dict.items() if k.startswith('feature')}
+        model.load_state_dict(pretrained_dict, strict=False)
     else:
         model = instantiate(cfg.method.cls, backbone=backbone)
 
