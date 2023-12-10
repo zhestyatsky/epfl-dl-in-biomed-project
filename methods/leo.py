@@ -398,12 +398,14 @@ class LEO(MetaTemplate):
         else:  # Regression task
             y_query = y[:, self.n_support:].contiguous().view(self.n_way * self.n_query, -1)
 
-        y = torch.cat((y_support, y_query), dim=0)
+        if self.do_pretrain_weights:
+            y = torch.cat((y_support, y_query), dim=0)
+            if torch.cuda.is_available():
+                y = y.cuda()
 
         if torch.cuda.is_available():
             y_support = y_support.cuda()
             y_query = y_query.cuda()
-            y = y.cuda()
 
         if self.do_pretrain_weights:
             scores = self.calculate_scores_and_regularization_parameters(x)
