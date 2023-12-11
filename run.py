@@ -111,8 +111,13 @@ def train(train_loader, val_loader, model, cfg):
             model.load_state_dict(tmp['state'])
 
     if cfg.method.name == "leo":
-        model_parameters = [*model.encoder.parameters(), *model.decoder.parameters(), model.inner_lr, model.finetuning_lr]
-        optimizer = instantiate(cfg.optimizer_cls, params=model_parameters, weight_decay=cfg.method.weight_decay)
+        model_weights_parameters = [*model.encoder.parameters(), *model.decoder.parameters()]
+        if cfg.method.optimize_backbone:
+            model_weights_parameters.extend(*model.feature.parameters())
+        weights_param_group = {'params': model_weights_parameters}
+        lr_param_group = {'params': [model.inner_lr, model.finetuning_lr], 'weight_decay': 0}
+        all_parameters = [weights_param_group, lr_param_group]
+        optimizer = instantiate(cfg.optimizer_cls, params=all_parameters, weight_decay=cfg.method.weight_decay)
     else:
         optimizer = instantiate(cfg.optimizer_cls, params=model.parameters())
 
