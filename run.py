@@ -36,10 +36,9 @@ def initialize_dataset_model(cfg):
     # Instantiate few-shot method class
     if cfg.method.name == "leo":
         model = instantiate(cfg.method.cls, x_dim=train_dataset.dim, backbone_dims=cfg.backbone.layer_dim, backbone=backbone)
-        if cfg.method.use_pretrained_weights:
-            print("Using pretrained weights pretraining ...")
-            state_dict = torch.load(cfg.method.pretrained_weights_path)['state']
-            print("state dict", state_dict)
+        if cfg.method.pretrained_backbone_weights_path != "":
+            print(f"Using pretrained backbone from {cfg.method.pretrained_backbone_weights_path}.")
+            state_dict = torch.load(cfg.method.pretrained_backbone_weights_path)['state']
             pretrained_dict = {k: v for k, v in state_dict.items()
                                if k.startswith('feature') and (k.endswith('weight') or k.endswith('bias'))}
             model.load_state_dict(pretrained_dict, strict=False)
