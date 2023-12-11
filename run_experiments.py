@@ -6,12 +6,12 @@ from itertools import product
 hyperparameters = {
     'dataset': ['tabula_muris'],
     'n_shot': [1, 5],
-    'method.optimize_backbone': [False, True],
-    'method.enable_finetuning_loop': [False, True],
     'method.pretrained_backbone_weights_path': [
         'pretrained_weights/tabula_muris_baseline_model.tar',
         'pretrained_weights/tabula_muris_baseline_pp_model.tar',
     ]
+    'method.optimize_backbone': [False, True],
+    'method.enable_finetuning_loop': [False, True],
     # Add more hyperparameters as needed
 }
 
