@@ -42,6 +42,8 @@ def initialize_dataset_model(cfg):
             pretrained_dict = {k: v for k, v in state_dict.items()
                                if k.startswith('feature') and (k.endswith('weight') or k.endswith('bias'))}
             model.load_state_dict(pretrained_dict, strict=False)
+        else:
+            print(f"Using randomly initialized backbone.")
     else:
         model = instantiate(cfg.method.cls, backbone=backbone)
 
