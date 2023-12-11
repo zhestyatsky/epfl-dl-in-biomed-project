@@ -438,13 +438,13 @@ class LEO(MetaTemplate):
                 # Check for NaN values in the gradients
                 for group in optimizer.param_groups:
                     for param in group['params']:
-                        if torch.isnan(param.grad).any():
+                        if param.grad is not None and torch.isnan(param.grad).any():
                             # Create a mask for NaN values in the gradients
                             nan_mask = torch.isnan(param.grad)
                             # Zero out the gradients for parameters associated with NaN values
                             param.grad[nan_mask] = 0.0
                     nn.utils.clip_grad_value_(group['params'], self.gradient_threshold)
-                nn.utils.clip_grad_norm_(group['params'], self.gradient_norm_threshold)
+                    nn.utils.clip_grad_norm_(group['params'], self.gradient_norm_threshold)
 
                 optimizer.step()
                 task_count = 0
