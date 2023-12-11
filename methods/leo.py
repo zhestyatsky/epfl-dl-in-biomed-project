@@ -213,8 +213,7 @@ class LEO(MetaTemplate):
 
     def __init__(self, x_dim, backbone_dims, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init,
                  num_adaptation_steps, kl_coef, orthogonality_penalty_coef, encoder_penalty_coef, dropout,
-                 gradient_threshold, gradient_norm_threshold, latent_space_dim, optimize_backbone,
-                 enable_finetuning_loop):
+                 gradient_threshold, gradient_norm_threshold, latent_space_dim, enable_finetuning_loop):
         """
         Initialize the LEO (Latent Embedding Optimization) model.
 
@@ -235,7 +234,6 @@ class LEO(MetaTemplate):
             gradient_threshold (float): Threshold for gradient clipping.
             gradient_norm_threshold (float): Threshold for gradient norm clipping.
             latent_space_dim (int): Dimensionality of the latent space.
-            optimize_backbone (bool): If True then both classifier and backbone weights are optimized.
             enable_finetuning_loop (bool): If True then finetuning loop is enabled.
         """
         super(LEO, self).__init__(backbone, n_way, n_support, change_way=False)
@@ -263,7 +261,6 @@ class LEO(MetaTemplate):
         self.encoder_penalty_coef = encoder_penalty_coef
         self.gradient_threshold = gradient_threshold
         self.gradient_norm_threshold = gradient_norm_threshold
-        self.optimize_backbone = optimize_backbone
         self.enable_finetuning_loop = enable_finetuning_loop
 
         self.dropout = nn.Dropout(p=dropout)
