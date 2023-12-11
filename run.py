@@ -112,10 +112,7 @@ def train(train_loader, val_loader, model, cfg):
             model.load_state_dict(tmp['state'])
 
     if cfg.method.name == "leo":
-        if cfg.method.do_pretrain_weights:
-            model_parameters = [*model.feature.parameters(), *model.classifier.parameters()]
-        else:
-            model_parameters = [*model.encoder.parameters(), *model.decoder.parameters(), model.inner_lr, model.finetuning_lr]
+        model_parameters = [*model.encoder.parameters(), *model.decoder.parameters(), model.inner_lr, model.finetuning_lr]
         optimizer = instantiate(cfg.optimizer_cls, params=model_parameters, weight_decay=cfg.method.weight_decay)
     else:
         optimizer = instantiate(cfg.optimizer_cls, params=model.parameters())
