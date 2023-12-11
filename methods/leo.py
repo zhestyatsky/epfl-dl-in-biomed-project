@@ -213,7 +213,8 @@ class LEO(MetaTemplate):
 
     def __init__(self, x_dim, backbone_dims, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init,
                  num_adaptation_steps, kl_coef, orthogonality_penalty_coef, encoder_penalty_coef, dropout,
-                 gradient_threshold, gradient_norm_threshold, latent_space_dim, optimize_backbone):
+                 gradient_threshold, gradient_norm_threshold, latent_space_dim, optimize_backbone,
+                 enable_finetuning_loop):
         """
         Initialize the LEO (Latent Embedding Optimization) model.
 
@@ -235,6 +236,7 @@ class LEO(MetaTemplate):
             gradient_norm_threshold (float): Threshold for gradient norm clipping.
             latent_space_dim (int): Dimensionality of the latent space.
             optimize_backbone (bool): If True then both classifier and backbone weights are optimized.
+            enable_finetuning_loop (bool): If True then finetuning loop is enabled.
         """
         super(LEO, self).__init__(backbone, n_way, n_support, change_way=False)
 
@@ -262,6 +264,7 @@ class LEO(MetaTemplate):
         self.gradient_threshold = gradient_threshold
         self.gradient_norm_threshold = gradient_norm_threshold
         self.optimize_backbone = optimize_backbone
+        self.enable_finetuning_loop = enable_finetuning_loop
 
         self.dropout = nn.Dropout(p=dropout)
         self.encoder = EncodingNetwork(
@@ -357,12 +360,13 @@ class LEO(MetaTemplate):
 
         # Meta training fine-tuning loop
         # - updates the classiffier weights by using the computed gradient
-        for _ in range(self.num_adaptation_steps):
-            scores = self.forward(x_support)
-            set_loss = self.loss_fn(scores, y_support)
-            grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
-            weights = weights - self.finetuning_lr * grad
-            self.set_weights(weights)
+        if self.enable_finetuning_loop:
+            for _ in range(self.num_adaptation_steps):
+                scores = self.forward(x_support)
+                set_loss = self.loss_fn(scores, y_support)
+                grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
+                weights = weights - self.finetuning_lr * grad
+                self.set_weights(weights)
 
         scores = self.forward(x_query)
         encoder_penalty = torch.mean((latents_z_init - latents_z) ** 2)
