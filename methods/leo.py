@@ -377,19 +377,18 @@ class LEO(MetaTemplate):
         raise ValueError('MAML performs further adapation simply by increasing task_upate_num')
 
     def set_forward_loss(self, x, y=None):
+        scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
+
+        decoder_parameters = list(self.decoder.parameters())
+        orthogonality_penalty = self.orthogonality(decoder_parameters[0])
+
         if y is None:  # Classification task
             y_query = torch.from_numpy(np.repeat(range(self.n_way), self.n_query))
         else:  # Regression task
             y_query = y[:, self.n_support:].contiguous().view(self.n_way * self.n_query, -1)
 
-
         if torch.cuda.is_available():
             y_query = y_query.cuda()
-
-        scores, kl_div, encoder_penalty = self.calculate_scores_and_regularization_parameters(x, y)
-
-        decoder_parameters = list(self.decoder.parameters())
-        orthogonality_penalty = self.orthogonality(decoder_parameters[0])
 
         loss = self.loss_fn(scores, y_query)
         regularized_loss = (
