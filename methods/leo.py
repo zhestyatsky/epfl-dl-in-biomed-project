@@ -436,16 +436,15 @@ class LEO(MetaTemplate):
                 loss_q.backward()
 
                 # Check for NaN values in the gradients
-                for param in [*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr]:
-                    if torch.isnan(param.grad).any():
-                        # Create a mask for NaN values in the gradients
-                        nan_mask = torch.isnan(param.grad)
-                        # Zero out the gradients for parameters associated with NaN values
-                        param.grad[nan_mask] = 0.0
-
-                # clip gradient if necessary
-                nn.utils.clip_grad_value_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_threshold)
-                nn.utils.clip_grad_norm_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_norm_threshold)
+                for group in optimizer.param_groups:
+                    for param in group['params']:
+                        if torch.isnan(param.grad).any():
+                            # Create a mask for NaN values in the gradients
+                            nan_mask = torch.isnan(param.grad)
+                            # Zero out the gradients for parameters associated with NaN values
+                            param.grad[nan_mask] = 0.0
+                    nn.utils.clip_grad_value_(group['params'], self.gradient_threshold)
+                nn.utils.clip_grad_norm_(group['params'], self.gradient_norm_threshold)
 
                 optimizer.step()
                 task_count = 0
