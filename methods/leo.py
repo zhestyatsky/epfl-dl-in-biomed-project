@@ -213,7 +213,7 @@ class LEO(MetaTemplate):
 
     def __init__(self, x_dim, backbone_dims, backbone, n_way, n_support, n_task, inner_lr_init, finetuning_lr_init,
                  num_adaptation_steps, kl_coef, orthogonality_penalty_coef, encoder_penalty_coef, dropout,
-                 gradient_threshold, gradient_norm_threshold, latent_space_dim, optimize_backbone):
+                 gradient_threshold, gradient_norm_threshold, latent_space_dim, enable_finetuning_loop):
         """
         Initialize the LEO (Latent Embedding Optimization) model.
 
@@ -234,7 +234,7 @@ class LEO(MetaTemplate):
             gradient_threshold (float): Threshold for gradient clipping.
             gradient_norm_threshold (float): Threshold for gradient norm clipping.
             latent_space_dim (int): Dimensionality of the latent space.
-            optimize_backbone (bool): If True then both classifier and backbone weights are optimized.
+            enable_finetuning_loop (bool): If True then finetuning loop is enabled.
         """
         super(LEO, self).__init__(backbone, n_way, n_support, change_way=False)
 
@@ -261,11 +261,7 @@ class LEO(MetaTemplate):
         self.encoder_penalty_coef = encoder_penalty_coef
         self.gradient_threshold = gradient_threshold
         self.gradient_norm_threshold = gradient_norm_threshold
-        self.optimize_backbone = optimize_backbone
-
-        assert not self.optimize_backbone, (
-            "Backbone optimization is not supported. Only classifier weights are optimized"
-        )
+        self.enable_finetuning_loop = enable_finetuning_loop
 
         self.dropout = nn.Dropout(p=dropout)
         self.encoder = EncodingNetwork(
@@ -361,12 +357,13 @@ class LEO(MetaTemplate):
 
         # Meta training fine-tuning loop
         # - updates the classiffier weights by using the computed gradient
-        for _ in range(self.num_adaptation_steps):
-            scores = self.forward(x_support)
-            set_loss = self.loss_fn(scores, y_support)
-            grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
-            weights = weights - self.finetuning_lr * grad
-            self.set_weights(weights)
+        if self.enable_finetuning_loop:
+            for _ in range(self.num_adaptation_steps):
+                scores = self.forward(x_support)
+                set_loss = self.loss_fn(scores, y_support)
+                grad = torch.autograd.grad(set_loss, weights, create_graph=True)[0]
+                weights = weights - self.finetuning_lr * grad
+                self.set_weights(weights)
 
         scores = self.forward(x_query)
         encoder_penalty = torch.mean((latents_z_init - latents_z) ** 2)
@@ -440,16 +437,15 @@ class LEO(MetaTemplate):
                 loss_q.backward()
 
                 # Check for NaN values in the gradients
-                for param in [*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr]:
-                    if torch.isnan(param.grad).any():
-                        # Create a mask for NaN values in the gradients
-                        nan_mask = torch.isnan(param.grad)
-                        # Zero out the gradients for parameters associated with NaN values
-                        param.grad[nan_mask] = 0.0
-
-                # clip gradient if necessary
-                nn.utils.clip_grad_value_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_threshold)
-                nn.utils.clip_grad_norm_([*self.encoder.parameters(), *self.decoder.parameters(), self.inner_lr, self.finetuning_lr], self.gradient_norm_threshold)
+                for group in optimizer.param_groups:
+                    for param in group['params']:
+                        if param.grad is not None and torch.isnan(param.grad).any():
+                            # Create a mask for NaN values in the gradients
+                            nan_mask = torch.isnan(param.grad)
+                            # Zero out the gradients for parameters associated with NaN values
+                            param.grad[nan_mask] = 0.0
+                    nn.utils.clip_grad_value_(group['params'], self.gradient_threshold)
+                    nn.utils.clip_grad_norm_(group['params'], self.gradient_norm_threshold)
 
                 optimizer.step()
                 task_count = 0

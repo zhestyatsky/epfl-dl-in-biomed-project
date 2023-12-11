@@ -36,6 +36,14 @@ def initialize_dataset_model(cfg):
     # Instantiate few-shot method class
     if cfg.method.name == "leo":
         model = instantiate(cfg.method.cls, x_dim=train_dataset.dim, backbone_dims=cfg.backbone.layer_dim, backbone=backbone)
+        if cfg.method.pretrained_backbone_weights_path != "":
+            print(f"Using pretrained backbone from {cfg.method.pretrained_backbone_weights_path}.")
+            state_dict = torch.load(cfg.method.pretrained_backbone_weights_path)['state']
+            pretrained_dict = {k: v for k, v in state_dict.items()
+                               if k.startswith('feature') and (k.endswith('weight') or k.endswith('bias'))}
+            model.load_state_dict(pretrained_dict, strict=False)
+        else:
+            print(f"Using randomly initialized backbone.")
     else:
         model = instantiate(cfg.method.cls, backbone=backbone)
 
@@ -105,8 +113,12 @@ def train(train_loader, val_loader, model, cfg):
             model.load_state_dict(tmp['state'])
 
     if cfg.method.name == "leo":
-        model_parameters = [*model.encoder.parameters(), *model.decoder.parameters(), model.inner_lr, model.finetuning_lr]
-        optimizer = instantiate(cfg.optimizer_cls, params=model_parameters, weight_decay=cfg.method.weight_decay)
+        model_weights_parameters = [*model.encoder.parameters(), *model.decoder.parameters()]
+        if cfg.method.optimize_backbone:
+            model_weights_parameters.extend(model.feature.parameters())
+        lr_param_group = {'params': [model.inner_lr, model.finetuning_lr], 'weight_decay': 0}
+        optimizer = instantiate(cfg.optimizer_cls, params=model_weights_parameters, weight_decay=cfg.method.weight_decay)
+        optimizer.add_param_group(lr_param_group)
     else:
         optimizer = instantiate(cfg.optimizer_cls, params=model.parameters())
 
