@@ -17,7 +17,7 @@ E.g. running command
 
 `python run.py exp.name={exp_name} method=leo dataset=swissprot n_shot=1 method.latent_space_dim=64 method.enable_finetuning_loop=True method.optimize_backbone=True`
 
-will train LEO model with latent space dimension set to 64, with inner finetuning loop enabled, with outer optimization of backbone enabled and with with random initialization for backbone (default). It will get the results on Swissprot for 5-way 1-shot case. 
+will train LEO model with latent space dimension set to 64, with inner finetuning loop enabled, with outer optimization of backbone enabled and with random initialization for backbone (default). It will get the results on Swissprot for 5-way 1-shot case. 
 
 ## Authors
 - Abdurrahman Said Gürbüz
