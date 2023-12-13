@@ -9,6 +9,7 @@ Implementation of the method called Latent Embedding Optimization (LEO). Origina
 - Other already existing files are updated such as `run.py` and `utils/io_utils.py` for compatibility with new algorithm and reproducibility of the results.
 - Grid Search results for Swissprot can be found in branch `grid-search-swissprot` under folder `checkpoints\exp_name\results.txt` and for Tabula Muris in branch `boris\grid-search-tabula-muris` under folder `output\exp_name_results.txt`.
 - In addition to this, detailed outputs for all experiments/training can be found under `output\exp_name.txt` in branches `grid-search-swissprot` and `boris\grid-search-tabula-muris`.
+- Note: Each experiment name in the results files are self-explanatory, which contains the used options and their values.
 
 ### How to Run
 For the new method (LEO), execute  `run.py` with `method=leo` command line argument, and with the configuration wanted.
