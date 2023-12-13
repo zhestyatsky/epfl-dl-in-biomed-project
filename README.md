@@ -7,7 +7,8 @@ Implementation of the method called Latent Embedding Optimization (LEO). Origina
 `conf/method/leo.yaml`: File that contains configurations and fixed hyperparameters for LEO. \
 `pretrained_weights/*.tar`: Files that are used to pretrain the backbone for the algorithm. \
 Other already existing files are updated such as `run.py` and `utils/io_utils.py` for compatibility with new algorithm and reproducibility of the results. \
-Grid Search results for Swissprot can be found in branch `grid-search-swissprot` under folder `checkpoints\exp_name\results.txt` and for Tabula Muris in branch `boris\grid-search-tabula-muris` under folder `output\exp_name_results.txt` 
+Grid Search results for Swissprot can be found in branch `grid-search-swissprot` under folder `checkpoints\exp_name\results.txt` and for Tabula Muris in branch `boris\grid-search-tabula-muris` under folder `output\exp_name_results.txt`. \
+In addition to this, detailed outputs for all experiments/training can be found under `output\exp_name.txt` in branches `grid-search-swissprot` and `boris\grid-search-tabula-muris`.
 
 ### How to Run
 For the new method (LEO), execute the `run.py` with `method=leo` command line argument, and with the configuration wanted. \
