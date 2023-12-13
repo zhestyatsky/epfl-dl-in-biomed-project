@@ -1,5 +1,4 @@
-# epfl-dl-in-biomed-project
-Project at CS-502: Deep learning in Biomedicine at EPFL. Option 2. \
+# Project at CS-502: Deep learning in Biomedicine at EPFL - Option 2
 Implementation of the method called Latent Embedding Optimization (LEO). Original paper can be found [here](https://arxiv.org/abs/1807.05960).
 
 ### Files and Their Descriptions:
